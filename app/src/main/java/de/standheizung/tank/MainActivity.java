@@ -269,7 +269,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void openUrl(String url) {
-            if (!url.startsWith("https://github.com/")) return;
+            if (!url.toLowerCase(java.util.Locale.ROOT).startsWith("https://github.com/")) return;
             runOnUiThread(() -> {
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));

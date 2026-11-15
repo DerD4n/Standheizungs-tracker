@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -99,7 +100,9 @@ final class Updater {
 
     /** Lädt die APK nach cache/exports (dort gibt ExportProvider sie zum Installieren frei). */
     static File download(Context c, String url, Progress p) throws Exception {
-        if (!url.startsWith("https://github.com/" + REPO + "/releases/download/")) {
+        // GitHub schreibt den Repository-Namen mal groß, mal klein – deshalb ohne Groß/Klein vergleichen
+        String expected = ("https://github.com/" + REPO + "/releases/download/").toLowerCase(Locale.ROOT);
+        if (!url.toLowerCase(Locale.ROOT).startsWith(expected)) {
             throw new SecurityException("Unerwartete Download-Adresse");
         }
         File dir = new File(c.getCacheDir(), "exports");
