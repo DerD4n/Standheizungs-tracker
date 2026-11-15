@@ -1,0 +1,11 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+
+# Signaturschlüssel liegt als GitHub-Secret vor, nie einchecken
+app/release.keystore
+app/keystore.properties
+*.jks
+*.keystore

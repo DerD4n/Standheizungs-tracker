@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#121211</color>
+    <color name="accent">#D95926</color>
+    <color name="w_bg">#1F1F1E</color>
+    <color name="w_text">#F0EFEC</color>
+    <color name="w_text2">#C3C2B7</color>
+    <color name="w_track">#30302D</color>
+    <color name="w_low">#E66767</color>
+</resources>

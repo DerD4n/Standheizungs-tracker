@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Standheizung Tracker</title>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f4f3f0; --surface:#fcfcfb; --surface-2:#efeeea; --line:#e2e0da;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#85837d;
+  --accent:#eb6834; --accent-ink:#b9461a; --accent-soft:#fbe4d9;
+  --blue:#2a78d6; --good:#008300; --warn:#b47a00; --danger:#c8332f;
+  --grid:#e7e5df; --radius:16px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --bg:#121211; --surface:#1a1a19; --surface-2:#252523; --line:#30302d;
+    --text:#f0efec; --text-2:#c3c2b7; --muted:#8d8c85;
+    --accent:#d95926; --accent-ink:#f2925f; --accent-soft:#3a2219;
+    --blue:#3987e5; --good:#0ca30c; --warn:#e0a52a; --danger:#e66767; --grid:#2c2c29;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{max-width:560px;margin:0 auto;padding:16px 16px 96px;min-height:100vh}
+header.top{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 16px}
+header.top h1{font-size:20px;margin:0;letter-spacing:-.01em}
+header.top .sub{font-size:13px;color:var(--muted)}
+.sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--good)} .dot.warn{background:#eda100}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card h2{font-size:13px;font-weight:600;color:var(--text-2);margin:0 0 12px;text-transform:uppercase;letter-spacing:.04em}
+
+/* Hero */
+.hero .big{font-size:40px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+.hero .big small{font-size:16px;font-weight:500;color:var(--text-2);margin-left:4px}
+.hero .lbl{font-size:13px;color:var(--text-2)}
+.hero .row{display:flex;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.hero .row > div{flex:1}
+.hero .row .v{font-size:18px;font-weight:650;font-variant-numeric:tabular-nums}
+.hero .row .l{font-size:12px;color:var(--text-2)}
+.tank{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.tank .bar{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin:8px 0 6px}
+.tank .bar i{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.tank .bar i.low{background:var(--danger)}
+.tank .t{display:flex;justify-content:space-between;font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.tank .t b{color:var(--text)}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.kpi{background:var(--surface-2);border-radius:12px;padding:12px}
+.kpi .l{font-size:12px;color:var(--text-2)}
+.kpi .v{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-.01em}
+.kpi .v small{font-size:13px;font-weight:500;color:var(--text-2);margin-left:3px}
+.kpi .h{font-size:11px;color:var(--muted);margin-top:2px}
+
+.seg{display:flex;background:var(--surface-2);border-radius:999px;padding:3px;gap:2px;margin-bottom:12px}
+.seg button{flex:1;border:0;background:transparent;border-radius:999px;padding:7px 6px;font-size:13px;cursor:pointer;color:var(--text-2)}
+.seg button.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* List */
+.entry{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line);cursor:pointer}
+.entry:first-child{border-top:0}
+.ico{flex:0 0 36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:17px;background:var(--accent-soft)}
+.entry .main{flex:1;min-width:0}
+.entry .t{font-weight:600}
+.entry .s{font-size:13px;color:var(--text-2)}
+.entry .x{font-size:12px;color:var(--accent-ink);margin-top:2px;font-variant-numeric:tabular-nums}
+.entry .r{text-align:right;font-variant-numeric:tabular-nums}
+.fdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin:-4px 0 10px}
+.seasonsel{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);margin:-4px 0 12px;font-weight:600}
+.badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--surface-2);color:var(--text-2);margin-left:6px;font-weight:500;vertical-align:1px}
+.month-h{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:18px 2px 4px}
+.empty{text-align:center;color:var(--muted);padding:28px 8px}
+
+/* Charts */
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .axis{fill:var(--muted);font-size:11px}
+.chart .gridl{stroke:var(--grid);stroke-width:1}
+.tip{position:absolute;pointer-events:none;background:var(--text);color:var(--surface);font-size:12px;padding:6px 9px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-100%);opacity:0;transition:opacity .1s;font-variant-numeric:tabular-nums;z-index:2}
+.tip.on{opacity:1}
+.chart-total{font-size:13px;color:var(--text-2);margin:-6px 0 10px}
+
+/* Tabbar */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:5}
+nav.tabs .in{display:flex;max-width:560px;width:100%}
+nav.tabs button{flex:1;border:0;background:none;padding:10px 4px 14px;font-size:11px;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav.tabs button .i{font-size:19px;line-height:1;filter:grayscale(1);opacity:.7}
+nav.tabs button.on{color:var(--text);font-weight:600}
+nav.tabs button.on .i{filter:none;opacity:1}
+.fab{position:fixed;right:max(16px,calc(50% - 264px));bottom:78px;height:56px;padding:0 22px 0 18px;border-radius:999px;border:0;background:var(--accent);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.18);z-index:6;display:flex;align-items:center;gap:8px}
+.fab span{font-size:26px;line-height:1;margin-top:-2px}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.overlay.on{display:flex}
+.sheet{background:var(--surface);width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:18px 16px 24px;max-height:92vh;overflow:auto}
+@media (min-width:600px){.overlay{align-items:center}.sheet{border-radius:20px}}
+.sheet h3{margin:0 0 14px;font-size:18px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:4px}
+.field input,.field select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);outline:none}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.check{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--surface-2);margin-bottom:12px;cursor:pointer;font-size:14px}
+.check input{width:20px;height:20px;accent-color:var(--accent)}
+.check .h{font-size:12px;color:var(--muted)}
+.actions{display:flex;gap:8px;margin-top:6px}
+.btn{border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:12px 14px;cursor:pointer;font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;flex:1}
+.btn.danger{color:var(--danger)}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+.toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
+.toast.on{opacity:1}
+.notice{font-size:13px;color:var(--text-2);background:var(--surface-2);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.hidden{display:none!important}
+textarea.csv{width:100%;height:120px;font-family:ui-monospace,monospace;font-size:11px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);padding:8px}
+table.cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+table.cmp th{font-size:12px;color:var(--text-2);font-weight:500;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
+table.cmp th:first-child,table.cmp td:first-child{text-align:left}
+table.cmp td{text-align:right;padding:9px 4px;border-bottom:1px solid var(--line)}
+table.cmp tr:last-child td{border-bottom:0}
+/* Header-Umschalter */
+.hsw{border:0;background:none;padding:0;text-align:left;cursor:pointer;display:block}
+.hsw h1 .car{font-size:13px;color:var(--muted);margin-left:6px;vertical-align:2px}
+.hlist .hrow{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;cursor:pointer;border:1px solid transparent}
+.hlist .hrow.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.hlist .hrow .hi{width:38px;height:38px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;font-size:18px}
+.hlist .hrow.on .hi{background:var(--accent);color:#fff}
+.hlist .hrow .hn{font-weight:600}
+.hlist .hrow .hs{font-size:12px;color:var(--text-2)}
+.hlist .hrow .ck{margin-left:auto;color:var(--accent-ink);font-weight:700}
+/* Prognose */
+.fc{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.fc .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.fc .lbl{font-size:13px;color:var(--text-2)}
+.fc .val{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.fc .bar{position:relative;height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin:10px 0 6px}
+.fc .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--accent)}
+.fc .bar b{position:absolute;top:0;bottom:0;border-radius:999px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--accent) 45%,transparent) 0 4px,transparent 4px 8px)}
+.fc .t{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.fc .q{font-size:11px;color:var(--muted);margin-top:6px}
+/* Erinnerungen */
+.nrow{display:flex;align-items:center;gap:14px}
+.nrow .nbell{flex:0 0 44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:22px;background:var(--surface-2);transition:background .2s}
+.nrow .nbell.on{background:var(--accent-soft);animation:ring .9s ease-in-out 1}
+@keyframes ring{0%,100%{transform:rotate(0)}20%{transform:rotate(14deg)}40%{transform:rotate(-12deg)}60%{transform:rotate(8deg)}80%{transform:rotate(-4deg)}}
+.nrow .nt{font-weight:600;font-size:16px}
+.nrow .ns{font-size:12px;color:var(--text-2)}
+.switch{position:relative;margin-left:auto;flex:0 0 52px;height:32px;cursor:pointer}
+.switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.switch span{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:background .2s}
+.switch span::after{content:"";position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span::after{transform:translateX(20px)}
+.switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.switch.sm{flex-basis:44px;height:26px}
+.switch.sm span::after{width:20px;height:20px}
+.switch.sm input:checked+span::after{transform:translateX(18px)}
+.nbody{margin-top:16px;padding-top:4px;transition:opacity .2s}
+.nbody.off{opacity:.4;pointer-events:none}
+.nlabel{font-size:12px;color:var(--text-2);margin:12px 0 8px}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:8px 13px;font-size:14px;cursor:pointer;font-variant-numeric:tabular-nums}
+.pill.on{background:var(--text);border-color:var(--text);color:var(--surface);font-weight:600}
+.npreview{margin-top:16px;border-radius:14px;padding:12px 14px;background:var(--surface-2);display:flex;gap:12px;align-items:flex-start}
+.npreview .ni{flex:0 0 32px;height:32px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:15px}
+.npreview .nh{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.npreview .nm{font-size:14px;font-weight:600;margin-top:1px}
+.npreview .nx{font-size:13px;color:var(--text-2)}
+.hrem{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.hrem:first-child{border-top:0}
+.nwarn{margin-top:12px;border-radius:12px;padding:10px 12px;background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--text);font-size:13px}
+.nwarn button{margin-top:8px}
+.linkbtn{border:0;background:none;color:var(--accent-ink);font-weight:600;padding:0;cursor:pointer;font-size:13px}
+/* Update */
+.upd{display:flex;gap:12px;align-items:center;background:var(--text);color:var(--surface);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px}
+.upd .ui{flex:0 0 36px;height:36px;border-radius:10px;background:var(--accent);display:grid;place-items:center;font-size:18px;color:#fff}
+.upd .ut{font-weight:600;font-size:14px}
+.upd .us{font-size:12px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upd .ub{margin-left:auto;display:flex;gap:6px;flex-shrink:0}
+.upd button{border:0;border-radius:10px;padding:9px 12px;font-weight:600;cursor:pointer;font-size:13px}
+.upd .go{background:var(--accent);color:#fff}
+.upd .later{background:transparent;color:var(--surface);opacity:.7;padding:9px 6px}
+.upd .pb{height:4px;border-radius:999px;background:rgba(255,255,255,.2);margin-top:6px;overflow:hidden}
+.upd .pb i{display:block;height:100%;background:var(--accent);transition:width .2s}
+.ver{display:flex;align-items:center;gap:12px}
+.ver .vn{font-weight:600}
+.ver .vs{font-size:12px;color:var(--text-2)}
+.ver .btn{margin-left:auto}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="hsw" id="hsw" aria-label="Heizung wechseln">
+      <h1><span id="title">Standheizung</span><span class="car">▼</span></h1>
+      <div class="sub" id="subtitle">Diesel-Verbrauch & Kosten</div>
+    </button>
+    <div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Lädt…</span></div>
+  </header>
+
+  <div id="notice" class="notice hidden"></div>
+  <div id="updBanner" class="upd hidden"></div>
+
+  <!-- ÜBERSICHT -->
+  <section id="v-home">
+    <div class="card hero" id="hero"></div>
+    <div class="card">
+      <h2 id="seasonLabel">Dieses Heizjahr</h2>
+      <div class="kpis" id="kpiSeason"></div>
+      <div id="forecast"></div>
+    </div>
+    <div class="card">
+      <h2>Letzte Tankfüllungen</h2>
+      <div id="recent"></div>
+    </div>
+  </section>
+
+  <!-- VERLAUF -->
+  <section id="v-list" class="hidden">
+    <div class="card" style="padding-top:4px" id="fullList"></div>
+  </section>
+
+  <!-- STATISTIK -->
+  <section id="v-stats" class="hidden">
+    <div class="seg" id="period">
+      <button data-p="season" class="on">Heizjahr</button>
+      <button data-p="year">Kalenderjahr</button>
+      <button data-p="12m">12 Monate</button>
+      <button data-p="all">Alles</button>
+    </div>
+    <select id="seasonSel" class="seasonsel" aria-label="Heizjahr wählen"></select>
+    <div class="card">
+      <h2 id="periodLabel">Zeitraum</h2>
+      <div class="kpis" id="kpiStats"></div>
+    </div>
+    <div class="card">
+      <h2>Verbrauch pro Tag</h2>
+      <div class="chart-total" id="cRateT"></div>
+      <div class="chart" id="cRate"></div>
+    </div>
+    <div class="card">
+      <h2>Kosten pro Monat</h2>
+      <div class="chart-total" id="cCostT"></div>
+      <div class="chart" id="cCost"></div>
+    </div>
+    <div class="card">
+      <h2>Kraftstoffpreis</h2>
+      <div class="chart-total" id="cPriceT"></div>
+      <div class="chart" id="cPrice"></div>
+    </div>
+    <div class="card" id="fuelCard">
+      <h2>Nach Kraftstoff</h2>
+      <div id="fuelTable"></div>
+    </div>
+    <div class="card" id="seasonCard">
+      <h2>Heizjahre im Vergleich</h2>
+      <div id="seasonTable"></div>
+    </div>
+  </section>
+
+  <!-- EINSTELLUNGEN -->
+  <section id="v-settings" class="hidden">
+    <div class="card">
+      <h2 id="sHeaterH">Heizung</h2>
+      <div class="field"><label>Name</label><input id="sName" placeholder="z. B. Wohnmobil, Werkstatt, Gartenhaus"></div>
+      <div class="field"><label>Heizungsmodell</label><input id="sModel" placeholder="z. B. Webasto Air Top 2000"></div>
+      <div class="row2">
+        <div class="field"><label>Standard-Kraftstoff</label>
+          <select id="sFuel"></select></div>
+        <div class="field"><label>Tankgröße (Liter)</label><input id="sTank" type="number" step="0.5" min="0" inputmode="decimal" placeholder="optional"></div>
+      </div>
+      <div class="hint">Mit Tankgröße zeigt die App, wie voll der Tank ungefähr noch ist und wie lange er reicht.</div>
+      <div class="actions" style="margin-top:14px"><button class="btn danger hidden" id="hDel">Löschen</button><button class="btn primary" id="sSave">Speichern</button></div>
+      <div class="hint" style="margin-top:10px">Weitere Heizung (z. B. Werkstatt, zweites Fahrzeug)? <button class="linkbtn" id="hAdd2">+ Heizung hinzufügen</button></div>
+    </div>
+
+    <div class="card" id="notifyCard">
+      <div class="nrow">
+        <div class="nbell" id="nBell">🔔</div>
+        <div><div class="nt">Tankstand-Erinnerung</div><div class="ns" id="nSub">Rechtzeitig Bescheid bekommen, bevor der Tank leer ist.</div></div>
+        <label class="switch"><input type="checkbox" id="nOn" aria-label="Tankstand-Erinnerung"><span></span></label>
+      </div>
+      <div class="nbody off" id="nBody">
+        <div class="nlabel">Erinnern, wenn der Tank nur noch reicht für</div>
+        <div class="pills" id="nDays">
+          <button class="pill" data-d="1">1 Tag</button><button class="pill" data-d="2">2 Tage</button><button class="pill" data-d="3">3 Tage</button><button class="pill" data-d="5">5 Tage</button><button class="pill" data-d="7">1 Woche</button>
+        </div>
+        <div class="nlabel">Uhrzeit</div>
+        <div class="pills" id="nHour">
+          <button class="pill" data-h="8">🌅 8:00</button><button class="pill" data-h="12">☀️ 12:00</button><button class="pill" data-h="18">🌆 18:00</button><button class="pill" data-h="20">🌙 20:00</button>
+        </div>
+        <div id="nHeatersWrap" class="hidden">
+          <div class="nlabel">Für diese Heizungen</div>
+          <div id="nHeaters"></div>
+        </div>
+        <div class="npreview" id="nPreview"></div>
+        <div class="actions" style="margin-top:10px"><button class="btn" id="nTest">Test-Benachrichtigung senden</button></div>
+      </div>
+      <div class="nwarn hidden" id="nPerm">Benachrichtigungen für diese App sind in Android ausgeschaltet.<br><button class="btn" id="nOpenSys">Android-Einstellungen öffnen</button></div>
+      <div class="hint hidden" id="nWeb" style="margin-top:12px">📱 Erinnerungen gibt es in der Android-App. Hier im Browser kannst du sie nicht empfangen.</div>
+    </div>
+
+    <div class="card">
+      <h2>Heizjahr</h2>
+      <div class="field"><label>Heizjahr beginnt im</label><select id="sYearStart"></select></div>
+      <div class="hint" id="sYearHint"></div>
+    </div>
+
+    <div class="card hidden" id="verCard">
+      <h2>App</h2>
+      <div class="ver"><div><div class="vn" id="verName">Version</div><div class="vs" id="verStatus">–</div></div><button class="btn" id="verCheck">Nach Updates suchen</button></div>
+    </div>
+
+    <div class="card hidden" id="widgetCard">
+      <h2>Widget</h2>
+      <p style="margin:0;font-size:13px;color:var(--text-2)">Tankstand und Reichweite direkt auf dem Startbildschirm: Lange auf eine freie Stelle des Startbildschirms tippen → <b>Widgets</b> → <b>Standheizung</b>.</p>
+      <div class="field hidden" id="wSelWrap" style="margin-top:12px"><label>Widget zeigt</label><select id="wSel"></select></div>
+    </div>
+    <div class="card">
+      <h2>So wird gerechnet</h2>
+      <p style="margin:0;font-size:13px;color:var(--text-2)">Wird der Tank jedes Mal voll gemacht, ist die getankte Menge genau das, was seit dem letzten Volltanken verbraucht wurde. Daraus und aus den Tagen dazwischen ergibt sich der Verbrauch pro Tag. Teilfüllungen werden bis zum nächsten Volltanken zusammengezählt. Die erste Füllung ist der Startpunkt und zählt noch nicht als Verbrauch.</p>
+    </div>
+    <div class="card">
+      <h2>Datensicherung</h2>
+      <p style="margin:0 0 10px;font-size:13px;color:var(--text-2)">Sichere deine Tankfüllungen oder übertrage sie auf ein anderes Gerät (z.&nbsp;B. von der Web-Version in die Android-App).</p>
+      <div class="actions" style="flex-wrap:wrap">
+        <button class="btn" id="bkExport">Backup exportieren</button>
+        <button class="btn" id="csvCopy">CSV für Excel</button>
+        <button class="btn" id="bkShowImport">Backup importieren</button>
+      </div>
+      <div id="bkOutWrap" class="hidden" style="margin-top:12px">
+        <textarea class="csv" id="bkOut" readonly></textarea>
+        <div class="hint" id="bkOutHint"></div>
+      </div>
+      <div id="bkInWrap" class="hidden" style="margin-top:12px">
+        <textarea class="csv" id="bkIn" placeholder="Backup-Text hier einfügen…"></textarea>
+        <div class="actions"><button class="btn primary" id="bkImport">Importieren</button></div>
+        <div class="hint">Vorhandene Einträge bleiben erhalten, doppelte werden übersprungen.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<button class="fab" id="fab"><span>+</span>Getankt</button>
+
+<nav class="tabs"><div class="in">
+  <button data-v="home" class="on"><span class="i">🏠</span>Übersicht</button>
+  <button data-v="list"><span class="i">⛽</span>Tankfüllungen</button>
+  <button data-v="stats"><span class="i">📊</span>Statistik</button>
+  <button data-v="settings"><span class="i">⚙️</span>Einstellungen</button>
+</div></nav>
+
+<!-- Formular -->
+<div class="overlay" id="ov">
+  <div class="sheet" role="dialog" aria-modal="true">
+    <h3 id="fTitle">Getankt</h3>
+    <form id="form" autocomplete="off">
+      <div class="field"><label>Datum</label><input id="fDate" type="date" required></div>
+      <div class="field"><label>Kraftstoff</label><select id="fFuel"></select></div>
+      <div class="row2">
+        <div class="field"><label>Menge (Liter)</label><input id="fLit" type="number" step="0.01" min="0" inputmode="decimal" required></div>
+        <div class="field"><label>Preis (€/l)</label><input id="fPrice" type="number" step="0.001" min="0" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label>Gesamtbetrag (€)</label><input id="fTot" type="number" step="0.01" min="0" inputmode="decimal"></div>
+      <label class="check"><input type="checkbox" id="fFull" checked><div>Tank voll gemacht<div class="h">Nur dann lässt sich der Verbrauch exakt berechnen</div></div></label>
+      <div class="field"><label>Notiz</label><input id="fNote" placeholder="optional, z. B. Tankstelle"></div>
+      <div class="actions">
+        <button type="button" class="btn danger hidden" id="fDel">Löschen</button>
+        <button type="button" class="btn" id="fCancel">Abbrechen</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="overlay" id="hov">
+  <div class="sheet" role="dialog" aria-modal="true">
+    <h3>Heizungen</h3>
+    <div class="hlist" id="hList"></div>
+    <div class="actions" style="margin-top:12px"><button class="btn" id="hAdd" style="flex:1">+ Heizung hinzufügen</button><button class="btn" id="hClose">Fertig</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+"use strict";
+const $ = (id) => document.getElementById(id);
+const DEFAULT_SETTINGS = { yearStart:8, notify:{on:false, days:3, hour:18}, widget:null };
+const newHeater=(o={})=>({ id:o.id||("h"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)), name:String(o.name||"").slice(0,60), model:String(o.model||"").slice(0,80), fuel:o.fuel||"Diesel", tank:o.tank??null, notify:o.notify!==false });
+const FUELS=[["Diesel","#2a78d6","#3987e5"],["Heizöl","#eb6834","#d95926"],["HVO100","#1baf7a","#199e70"],["Petroleum","#eda100","#c98500"],["Benzin","#e87ba4","#d55181"],["Sonstiges","#008300","#0ca30c"]];
+const FUEL_NAMES=FUELS.map(f=>f[0]);
+const darkMQ=window.matchMedia?window.matchMedia("(prefers-color-scheme: dark)"):null;
+const fuelColor=(name)=>{ const f=FUELS.find(x=>x[0]===name)||FUELS[FUELS.length-1]; return darkMQ&&darkMQ.matches?f[2]:f[1]; };
+const state = { settings:structuredClone(DEFAULT_SETTINGS), heaters:[newHeater({id:"h1"})], active:"h1", fills:[], view:"home", period:"season", seasonY:null };
+const SM=()=>{ const m=+state.settings.yearStart; return m>=0&&m<12?m:8; };
+const hjOf=(d)=> d.getMonth()>=SM()? d.getFullYear() : d.getFullYear()-1;
+const curSeason=()=>hjOf(new Date());
+const hjRange=(y)=>[new Date(y,SM(),1), new Date(y+1,SM(),1)];
+const hjSpan=()=> `${MONTHS_X[SM()]} – ${MONTHS_X[(SM()+11)%12]}`;
+const H=()=> state.heaters.find(h=>h.id===state.active) || state.heaters[0];
+const hid=(f)=> f.heaterId || state.heaters[0].id;
+const fuelOf=(f)=> FUEL_NAMES.includes(f.fuel)? f.fuel : (FUEL_NAMES.includes(H().fuel)? H().fuel : "Diesel");
+const MONTHS_X=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+const DAY=86400000;
+
+/* ---------- Format ---------- */
+const nf=(d)=>new Intl.NumberFormat("de-DE",{minimumFractionDigits:d,maximumFractionDigits:d});
+const n0=nf(0), n1=nf(1), n2=nf(2), n3=nf(3);
+const eur=(v)=>n2.format(v||0)+" €";
+const MONTHS=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+const MONTHS_L=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+const pad=(x)=>String(x).padStart(2,"0");
+const toInput=(d)=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseD=(s)=>{ const [y,m,d]=String(s).slice(0,10).split("-").map(Number); return new Date(y,m-1,d); };
+const fmtDate=(s)=>{const d=parseD(s);return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`;};
+const days=(a,b)=>Math.round((b-a)/DAY);
+const num=(v)=>{ if(v===""||v==null) return null; const x=parseFloat(String(v).replace(",",".")); return isFinite(x)?x:null; };
+const esc=(s)=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const today=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());};
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("on"),1800);}
+const plural=(n,a,b)=>`${n_(n)} ${n===1?a:b}`; const n_=(n)=>n0.format(n);
+
+/* ---------- Kern-Berechnung ----------
+   Intervalle zwischen zwei Vollbetankungen: Liter = Summe aller Füllungen nach der vorigen
+   Vollbetankung bis einschließlich der aktuellen; Zeitraum = Tage zwischen beiden. */
+function heaterFills(h){ const id=(h||H()).id; return state.fills.filter(f=>hid(f)===id); }
+function sortedAsc(h){ return heaterFills(h).sort((a,b)=>parseD(a.date)-parseD(b.date) || (a.created||0)-(b.created||0)); }
+function intervals(h){
+  const f=sortedAsc(h); const out=[]; let start=null, accL=0, accC=0, members=[];
+  for(const x of f){
+    if(start===null){ if(x.full) start=x; continue; }
+    accL+=x.liters||0; accC+=x.total||0; members.push(x);
+    if(x.full){
+      const a=parseD(start.date), b=parseD(x.date), d=days(a,b);
+      if(d>0) out.push({from:a,to:b,days:d,liters:accL,cost:accC,rate:accL/d,costRate:accC/d,price:accL?accC/accL:0,end:x,members:[...members]});
+      else if(out.length){ const last=out[out.length-1]; last.liters+=accL; last.cost+=accC; last.rate=last.liters/last.days; last.costRate=last.cost/last.days; last.end=x; }
+      start=x; accL=0; accC=0; members=[];
+    }
+  }
+  return out;
+}
+// Verbrauch/Kosten anteilig auf einen Zeitraum [a,b) verteilen
+function share(ivs,a,b){
+  let L=0,C=0,D=0;
+  for(const iv of ivs){
+    const s=Math.max(iv.from.getTime(),a?a.getTime():-Infinity), e=Math.min(iv.to.getTime(),b?b.getTime():Infinity);
+    if(e>s){ const d=(e-s)/DAY; L+=iv.rate*d; C+=iv.costRate*d; D+=d; }
+  }
+  return {liters:L,cost:C,days:D};
+}
+const seasonName=(y)=> SM()===0 ? `${y}` : `${y}/${String(y+1).slice(2)}`;
+function periodRange(p, sy){
+  const now=today();
+  if(p==="year") return [new Date(now.getFullYear(),0,1), null, `Jahr ${now.getFullYear()}`];
+  if(p==="12m") return [new Date(now.getFullYear()-1,now.getMonth(),now.getDate()), null, "Letzte 12 Monate"];
+  if(p==="season"){ const y=sy??curSeason(); const [a,b]=hjRange(y); return [a, b, `Heizjahr ${seasonName(y)}`]; }
+  return [null,null,"Gesamter Zeitraum"];
+}
+function periodStats(range){
+  const [a,b]=range; const ivs=intervals(); const sh=share(ivs,a,b);
+  const fills=heaterFills().filter(f=>{const d=parseD(f.date);return (!a||d>=a)&&(!b||d<b);});
+  const bought=fills.reduce((s,f)=>s+(f.total||0),0), boughtL=fills.reduce((s,f)=>s+(f.liters||0),0);
+  return {...sh, rate: sh.days? sh.liters/sh.days:0, costDay: sh.days? sh.cost/sh.days:0,
+    fills:fills.length, bought, boughtL, avgPrice: boughtL? bought/boughtL:0};
+}
+
+/* ---------- Speicher ---------- */
+const LS_KEY="standheizung-tank-v2";
+// Ältere Datenstände (eine Heizung, Einstellungen am Profil) in das neue Format übernehmen
+function adoptProfile(d){
+  d=d||{}; const s=d.settings||{};
+  let heaters=Array.isArray(d.heaters)&&d.heaters.length ? d.heaters.map(newHeater) : [newHeater({id:"h1", name:s.name, model:s.model, fuel:s.fuel, tank:s.tank})];
+  state.heaters=heaters;
+  state.active = heaters.some(h=>h.id===d.active) ? d.active : heaters[0].id;
+  const n=s.notify||{};
+  state.settings={ yearStart: Number.isInteger(s.yearStart)?s.yearStart:8,
+    notify:{ on:!!n.on, days:[1,2,3,5,7].includes(n.days)?n.days:3, hour:[8,12,18,20].includes(n.hour)?n.hour:18 },
+    widget: heaters.some(h=>h.id===s.widget)? s.widget : null };
+}
+const profileBody=()=>({settings:structuredClone(state.settings), heaters:state.heaters.map(h=>({...h})), active:state.active});
+let backend="local", profileRef=null, fillsCol=null;
+function lsRead(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||null; }catch(e){ return null; } }
+function lsWrite(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({...profileBody(),fills:state.fills})); }catch(e){} }
+function setSync(kind,txt){ $("syncDot").className="dot "+(kind||""); $("syncTxt").textContent=txt; }
+function showNotice(txt){ const n=$("notice"); if(!txt){n.classList.add("hidden");return;} n.textContent=txt; n.classList.remove("hidden"); }
+function useLocal(reason){
+  backend="local"; const d=lsRead();
+  if(window.AndroidBridge){ $("syncDot").parentNode.classList.add("hidden"); reason=null; }
+  if(d){ adoptProfile(d); state.fills=d.fills||[]; }
+  setSync("warn","Nur auf diesem Gerät"); if(reason) showNotice(reason); render();
+}
+async function init(){
+  render();
+  if(!window.claude || typeof window.claude.use!=="function"){ useLocal(); return; }
+  let settled=false;
+  const timer=setTimeout(()=>{ if(!settled){ settled=true; useLocal("Die Cloud-Speicherung ist gerade nicht erreichbar – Einträge werden vorerst nur in diesem Browser gespeichert."); } },10000);
+  try{
+    const [db,user]=await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    const uid = user ? await user.id() : null;
+    if(settled) return;
+    if(!db || !uid){ settled=true; clearTimeout(timer); useLocal(); return; }
+    backend="db";
+    profileRef=db.doc(`data/users/${uid}/tank`);
+    fillsCol=profileRef.collection("fills");
+    let gotP=false, gotF=false;
+    const done=()=>{ if(gotP&&gotF&&!settled){ settled=true; clearTimeout(timer); setSync("ok","Synchronisiert"); showNotice(""); } };
+    const onErr=(e)=>{ if(!settled){ settled=true; clearTimeout(timer); } setSync("warn","Sync-Fehler"); showNotice("Synchronisierung unterbrochen ("+(e&&e.code||"Fehler")+"). Lade die Seite später neu."); };
+    profileRef.onSnapshot(s=>{ const d=s.exists?s.data():{}; adoptProfile(d); if(!s.metadata.fromCache) gotP=true; done(); render(); },onErr);
+    fillsCol.onSnapshot(q=>{ state.fills=q.docs.map(d=>({...d.data(),id:d.id})); if(!q.metadata.fromCache) gotF=true; done(); render(); },onErr);
+  }catch(e){ if(!settled){ settled=true; clearTimeout(timer); useLocal(); } }
+}
+function writeErr(err){ toast(err&&err.code==="quota_exceeded" ? "Speicher voll – bitte alte Einträge löschen." : "Speichern fehlgeschlagen"); }
+let pBusy=Promise.resolve();
+function saveSettings(){
+  if(backend!=="db"){ lsWrite(); render(); return; }
+  const body=profileBody();
+  pBusy=pBusy.then(()=>profileRef.set(body)).catch(writeErr); render();
+}
+async function saveFill(f){
+  const body={...f}; const id=body.id; delete body.id;
+  if(backend!=="db"){
+    if(id){ const i=state.fills.findIndex(x=>x.id===id); if(i>=0) state.fills[i]={...body,id}; }
+    else state.fills.push({...body,id:"l"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)});
+    lsWrite(); render(); return;
+  }
+  try{ await (id? fillsCol.doc(id).set(body) : fillsCol.add(body)); }catch(e){ writeErr(e); throw e; }
+}
+async function deleteFill(id){
+  if(backend!=="db"){ state.fills=state.fills.filter(x=>x.id!==id); lsWrite(); render(); return; }
+  try{ await fillsCol.doc(id).delete(); }catch(e){ writeErr(e); }
+}
+
+/* ---------- Render ---------- */
+const kpi=(l,v,u,h)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v}${u?`<small>${u}</small>`:""}</div>${h?`<div class="h">${h}</div>`:""}</div>`;
+
+function heroHTML(){
+  const ivs=intervals(), f=sortedAsc();
+  if(!f.length) return `<div class="lbl">Willkommen!</div><div style="margin-top:6px;font-size:15px">Trag beim nächsten Tanken einfach Menge und Preis ein – am besten jedes Mal voll machen.<br><span style="color:var(--text-2);font-size:13px">Ab der zweiten Vollbetankung siehst du hier deinen Verbrauch.</span></div>`;
+  if(!ivs.length) return `<div class="lbl">Startpunkt gesetzt</div><div style="margin-top:6px;font-size:15px">Erste Füllung am ${fmtDate(f[0].date)} gespeichert. Sobald du das nächste Mal voll tankst, berechnet die App den Verbrauch.</div>`;
+  const cur=ivs[ivs.length-1];
+  const recent=share(ivs,new Date(today().getTime()-30*DAY),null);
+  let html=`<div class="lbl">Aktueller Verbrauch · seit ${fmtDate(toInput(cur.from))}</div>
+    <div class="big">${n2.format(cur.rate)}<small>l / Tag</small></div>
+    <div class="row">
+      <div><div class="v">${eur(cur.costRate)}</div><div class="l">pro Tag</div></div>
+      <div><div class="v">${eur(cur.costRate*30.4)}</div><div class="l">pro Monat</div></div>
+      <div><div class="v">${n2.format(cur.rate/24)} l</div><div class="l">pro Stunde (Ø)</div></div>
+    </div>`;
+  const last=f[f.length-1], cap=num(H().tank);
+  if(cap && last.full){
+    const since=Math.max(0,(today()-parseD(last.date))/DAY);
+    const used=cur.rate*since, left=Math.max(0,cap-used), pct=Math.max(0,Math.min(100,left/cap*100));
+    const rest=cur.rate? left/cur.rate:0; const empty=new Date(today().getTime()+rest*DAY);
+    const low = rest <= Math.max(state.settings.notify.days,2);
+    html+=`<div class="tank"><div class="t"><span>Tank geschätzt${low?' · <b style="color:var(--danger)">bald tanken!</b>':""}</span><span><b>ca. ${n0.format(left)} l</b> von ${n_(cap)} l</span></div>
+      <div class="bar"><i style="width:${pct}%" class="${(pct<20||low)?"low":""}"></i></div>
+      <div class="t"><span>reicht noch ca. <b>${plural(Math.round(rest),"Tag","Tage")}</b></span><span>leer um den ${fmtDate(toInput(empty))}</span></div></div>`;
+  } else if(cap && !last.full){
+    html+=`<div class="tank"><div class="t"><span>Tankstand unbekannt – die letzte Füllung war keine Vollbetankung.</span></div></div>`;
+  }
+  return html;
+}
+
+function fillHTML(f, ivByEnd){
+  const iv=ivByEnd.get(f.id);
+  const ppl=f.liters? (f.total||0)/f.liters : 0;
+  let x="";
+  if(iv) x=`<div class="x">${plural(iv.days,"Tag","Tage")} · ${n2.format(iv.rate)} l/Tag · ${eur(iv.costRate)}/Tag</div>`;
+  else if(!f.full) x=`<div class="x" style="color:var(--muted)">Teilfüllung – zählt zur nächsten Vollbetankung</div>`;
+  return `<div class="entry" data-id="${esc(f.id)}"><div class="ico">⛽</div><div class="main">
+    <div class="t">${n2.format(f.liters||0)} l${f.full?"":'<span class="badge">teilweise</span>'}</div>
+    <div class="s"><span class="fdot" style="background:${fuelColor(fuelOf(f))}"></span>${fuelOf(f)} · ${fmtDate(f.date)} · ${n3.format(ppl)} €/l${f.note?" · "+esc(f.note):""}</div>${x}</div>
+    <div class="r"><div class="t">${eur(f.total)}</div></div></div>`;
+}
+
+function render(){
+  const st=H();
+  $("title").textContent=st.name||"Standheizung";
+  $("subtitle").textContent=st.model||`${st.fuel||"Diesel"}-Verbrauch & Kosten`;
+  $("hsw").querySelector(".car").classList.toggle("hidden", false);
+  const ivs=intervals(); const ivByEnd=new Map(ivs.map(iv=>[iv.end.id,iv]));
+  const desc=sortedAsc().reverse();
+
+  $("hero").innerHTML=heroHTML();
+  if(state.seasonY==null) state.seasonY=curSeason();
+  const sr=periodRange("season",curSeason()); $("seasonLabel").textContent=sr[2];
+  const ss=periodStats(sr);
+  $("kpiSeason").innerHTML =
+    kpi("Verbraucht", n0.format(ss.liters), "l", ss.days? `Ø ${n2.format(ss.rate)} l pro Tag`:"noch keine Daten") +
+    kpi("Kosten", n0.format(ss.cost), "€", ss.days? `Ø ${eur(ss.costDay)} pro Tag`:"–") +
+    kpi("Getankt", n0.format(ss.boughtL), "l", `${plural(ss.fills,"Füllung","Füllungen")} · ${eur(ss.bought)}`) +
+    kpi("Ø Preis", ss.avgPrice? n3.format(ss.avgPrice):"–", ss.avgPrice?"€/l":"", "über alle Füllungen");
+  $("forecast").innerHTML=forecastHTML();
+  $("recent").innerHTML = desc.length? desc.slice(0,4).map(f=>fillHTML(f,ivByEnd)).join("") : `<div class="empty">Noch keine Tankfüllung.<br>Tippe auf <b>+ Getankt</b>.</div>`;
+
+  if(!desc.length) $("fullList").innerHTML=`<div class="empty">Noch keine Tankfüllung.</div>`;
+  else { let html="",cur="";
+    for(const f of desc){ const d=parseD(f.date), key=`${MONTHS_L[d.getMonth()]} ${d.getFullYear()}`;
+      if(key!==cur){ if(cur) html+="</div>"; cur=key; html+=`<div class="month-h">${key}</div><div>`; }
+      html+=fillHTML(f,ivByEnd); }
+    $("fullList").innerHTML=html+"</div>"; }
+
+  // Saisonauswahl
+  const firstF=sortedAsc()[0]; const fy=firstF? hjOf(parseD(firstF.date)) : curSeason();
+  const seasons=[]; for(let y=curSeason(); y>=Math.min(fy,curSeason()); y--) seasons.push(y);
+  if(!seasons.includes(state.seasonY)) state.seasonY=curSeason();
+  $("seasonSel").innerHTML=seasons.map(y=>`<option value="${y}"${y===state.seasonY?" selected":""}>Heizjahr ${seasonName(y)} (${hjSpan()})${y===curSeason()?" · aktuell":""}</option>`).join("");
+  $("seasonSel").classList.toggle("hidden", state.period!=="season");
+  const pr=periodRange(state.period,state.seasonY); $("periodLabel").textContent=pr[2];
+  const ps=periodStats(pr);
+  $("kpiStats").innerHTML =
+    kpi("Verbraucht", n0.format(ps.liters), "l", ps.days? `über ${plural(Math.round(ps.days),"Tag","Tage")}`:"noch keine Daten") +
+    kpi("Kosten", n0.format(ps.cost), "€", "anteilig nach Verbrauch") +
+    kpi("Ø pro Tag", n2.format(ps.rate), "l", eur(ps.costDay)+" pro Tag") +
+    kpi("Ø pro Monat", n0.format(ps.costDay*30.4), "€", `${n0.format(ps.rate*30.4)} l pro Monat`) +
+    kpi("Getankt", n0.format(ps.boughtL), "l", `${plural(ps.fills,"Füllung","Füllungen")} · ${eur(ps.bought)}`) +
+    kpi("Ø Preis", ps.avgPrice? n3.format(ps.avgPrice):"–", ps.avgPrice?"€/l":"", "über alle Füllungen");
+  if(state.view==="stats") renderCharts(ivs,pr);
+
+  if(!document.activeElement || !document.activeElement.closest("#v-settings .card:first-child")){
+    $("sName").value=st.name||""; $("sModel").value=st.model||""; $("sFuel").value=FUEL_NAMES.includes(st.fuel)?st.fuel:"Diesel"; $("sTank").value=st.tank??"";
+  }
+  $("sHeaterH").textContent = state.heaters.length>1 ? `Heizung: ${st.name||"ohne Namen"}` : "Heizung";
+  $("hDel").classList.toggle("hidden", state.heaters.length<2);
+  $("sYearStart").value=String(SM());
+  $("sYearHint").textContent = SM()===0 ? "Das Heizjahr entspricht dem Kalenderjahr (Jan – Dez)." : `Ein Heizjahr läuft ${hjSpan()}, z. B. „Heizjahr ${seasonName(curSeason())}“. Am besten liegt der Wechsel in den Monaten, in denen du kaum heizt. Deine Einträge bleiben beim Ändern unverändert.`;
+  renderNotify(); renderWidgetCard(); syncNative();
+}
+
+/* ---------- Prognose ----------
+   Verbrauch je Kalendermonat aus allen bisherigen Daten (l/Tag); fehlt ein Monat, wird der
+   aktuelle Verbrauch angenommen. Kosten mit dem zuletzt bezahlten Literpreis. */
+function forecast(){
+  const ivs=intervals(); if(!ivs.length) return null;
+  const y=curSeason(), [A,B]=hjRange(y), now=today();
+  const cur=ivs[ivs.length-1], lastTo=cur.to;
+  const acc=Array.from({length:12},()=>({L:0,D:0}));
+  for(let d=new Date(ivs[0].from.getFullYear(),ivs[0].from.getMonth(),1); d<lastTo; d=new Date(d.getFullYear(),d.getMonth()+1,1)){
+    const s=share(ivs,d,new Date(d.getFullYear(),d.getMonth()+1,1)); acc[d.getMonth()].L+=s.liters; acc[d.getMonth()].D+=s.days;
+  }
+  const priced=sortedAsc().filter(f=>f.liters&&f.total); const lp=priced.length? priced[priced.length-1] : null;
+  const price = lp? lp.total/lp.liters : cur.price;
+  let fb=0, tot=0;
+  const est=(a,b)=>{ let L=0; for(let t=a.getTime(); t<b.getTime(); t+=DAY){ const m=new Date(t).getMonth(); const r=acc[m].D>=10? acc[m].L/acc[m].D : null; if(r==null) fb++; tot++; L+=r??cur.rate; } return L; };
+  const known=share(ivs,A,B);
+  const gapFrom=new Date(Math.max(A.getTime(),lastTo.getTime()));
+  const gapL = gapFrom<now ? est(gapFrom,now) : 0;
+  const restL = now<B ? est(now<A?A:now,B) : 0;
+  const spent=known.cost+gapL*price, rest=restL*price;
+  return {y,A,B,spent,rest,total:spent+rest,liters:known.liters+gapL+restL,price,quality: tot? 1-fb/tot : 1, hasPrevYear: ivs[0].from <= new Date(A.getTime()-300*DAY)};
+}
+function forecastHTML(){
+  const fc=forecast(); if(!fc) return "";
+  const pct=fc.total? Math.min(100,fc.spent/fc.total*100):0;
+  const end=new Date(fc.B.getTime()-DAY);
+  const q = fc.quality>=.75 ? (fc.hasPrevYear? "Basiert auf deinem Verbrauch der Vorjahre im jeweiligen Monat." : "Basiert auf deinem bisherigen Verbrauch je Monat.")
+          : "Grobe Schätzung – wird genauer, je länger du einträgst.";
+  return `<div class="fc">
+    <div class="top"><span class="lbl">Prognose Heizjahr ${seasonName(fc.y)}</span><span class="val">ca. ${eur(Math.round(fc.total/10)*10).replace(",00","")}</span></div>
+    <div class="bar"><i style="width:${pct}%"></i><b style="left:${pct}%;width:${100-pct}%"></b></div>
+    <div class="t"><span>bisher ~${n0.format(fc.spent)} €</span><span>noch ~${n0.format(fc.rest)} € bis ${fmtDate(toInput(end))}</span></div>
+    <div class="q">≈ ${n0.format(fc.liters)} l gesamt · ${n3.format(fc.price)} €/l angenommen. ${q}</div>
+  </div>`;
+}
+
+/* ---------- Tankstand je Heizung (für Erinnerung & Widget) ---------- */
+function tankInfo(h){
+  const ivs=intervals(h), f=sortedAsc(h); const cap=num(h.tank);
+  const out={id:h.id,name:h.name||"Standheizung",cap:cap||0,hasData:ivs.length>0};
+  if(!ivs.length) return out;
+  const cur=ivs[ivs.length-1]; out.rate=cur.rate; out.costDay=cur.costRate;
+  const last=f[f.length-1];
+  out.lastFull=!!last.full; out.fillTime=parseD(last.date).getTime(); out.lastId=last.id;
+  if(cap && last.full && cur.rate>0){ out.emptyAt=out.fillTime + cap/cur.rate*DAY; }
+  return out;
+}
+function reminderItems(){
+  const n=state.settings.notify; const items=[];
+  for(const h of state.heaters){
+    if(!h.notify) continue; const t=tankInfo(h); if(!t.emptyAt) continue;
+    const wd=new Date(t.emptyAt - n.days*DAY);
+    const warnAt=new Date(wd.getFullYear(),wd.getMonth(),wd.getDate(),n.hour).getTime();
+    items.push({key:`${h.id}|${t.lastId}|${n.days}`, heater:t.name, warnAt, emptyAt:Math.round(t.emptyAt)});
+  }
+  return items;
+}
+let lastNative="";
+function syncNative(){
+  if(!APP || !APP.setAppState) return;
+  const wid = state.heaters.some(h=>h.id===state.settings.widget)? state.settings.widget : state.active;
+  const w=tankInfo(state.heaters.find(h=>h.id===wid)||H());
+  const payload=JSON.stringify({notify:state.settings.notify, items:reminderItems(), widget:w});
+  if(payload===lastNative) return; lastNative=payload;
+  try{ APP.setAppState(payload); }catch(e){}
+}
+const WD=["So","Mo","Di","Mi","Do","Fr","Sa"];
+const fmtWhen=(t)=>{ const d=new Date(t); return `${WD[d.getDay()]}, ${pad(d.getDate())}.${pad(d.getMonth()+1)}. um ${d.getHours()}:00`; };
+function notifStatus(){ try{ return APP&&APP.notificationStatus? APP.notificationStatus() : "web"; }catch(e){ return "web"; } }
+function renderNotify(){
+  const n=state.settings.notify, isApp=!!(APP&&APP.notificationStatus), st=notifStatus();
+  const on=n.on && (!isApp || st==="granted");
+  $("nOn").checked=on; $("nOn").disabled=!isApp;
+  $("nBell").classList.toggle("on",on); $("nBell").textContent= on?"🔔":"🔕";
+  $("nBody").classList.toggle("off",!on);
+  $("nWeb").classList.toggle("hidden",isApp);
+  $("nPerm").classList.toggle("hidden",!(isApp && n.on && st!=="granted"));
+  $("nSub").textContent = on ? `Aktiv · ${n.days===7?"1 Woche":plural(n.days,"Tag","Tage")} vorher um ${n.hour}:00` : "Rechtzeitig Bescheid bekommen, bevor der Tank leer ist.";
+  document.querySelectorAll("#nDays .pill").forEach(b=>b.classList.toggle("on",+b.dataset.d===n.days));
+  document.querySelectorAll("#nHour .pill").forEach(b=>b.classList.toggle("on",+b.dataset.h===n.hour));
+  const multi=state.heaters.length>1; $("nHeatersWrap").classList.toggle("hidden",!multi);
+  if(multi) $("nHeaters").innerHTML=state.heaters.map(h=>`<div class="hrem"><span style="flex:1">${esc(h.name||"ohne Namen")}${num(h.tank)?"":' <span class="badge">keine Tankgröße</span>'}</span><label class="switch sm"><input type="checkbox" data-hn="${esc(h.id)}"${h.notify?" checked":""}><span></span></label></div>`).join("");
+  // Vorschau
+  const items=reminderItems().sort((a,b)=>a.warnAt-b.warnAt); const now=Date.now();
+  let html;
+  if(items.length){
+    const it=items[0]; const left=Math.max(0,(it.emptyAt-now)/DAY);
+    const when = it.warnAt>now ? fmtWhen(it.warnAt) : "bald (Schwelle ist schon erreicht)";
+    html=`<div class="ni">⛽</div><div><div class="nh">Nächste Erinnerung · ${when}</div><div class="nm">${esc(it.heater)}: Tank bald leer</div><div class="nx">Laut Schätzung reicht der Tank noch ca. ${plural(Math.max(0,Math.round(left - Math.max(0,(it.warnAt-now)/DAY))),"Tag","Tage")}. Zeit zum Tanken!</div></div>`;
+  } else {
+    const h=H(), t=tankInfo(h);
+    const why = !num(h.tank) ? "Trag oben bei der Heizung die Tankgröße ein – dann kann die App den Tankstand schätzen."
+      : !t.hasData ? "Sobald zwei Vollbetankungen erfasst sind, kennt die App deinen Verbrauch."
+      : !t.lastFull ? "Die letzte Füllung war keine Vollbetankung – nach dem nächsten Volltanken geht's wieder."
+      : !h.notify ? "Für diese Heizung ist die Erinnerung ausgeschaltet." : "Gerade ist keine Erinnerung geplant.";
+    html=`<div class="ni">ℹ️</div><div><div class="nh">Noch keine Erinnerung geplant</div><div class="nx">${why}</div></div>`;
+  }
+  $("nPreview").innerHTML=html;
+}
+function renderWidgetCard(){
+  const isApp=!!(APP&&APP.setAppState); $("widgetCard").classList.toggle("hidden",!isApp);
+  const multi=state.heaters.length>1; $("wSelWrap").classList.toggle("hidden",!multi);
+  if(multi){ const cur=state.heaters.some(h=>h.id===state.settings.widget)? state.settings.widget : ""; 
+    $("wSel").innerHTML=`<option value="">Die gerade gewählte Heizung</option>`+state.heaters.map(h=>`<option value="${esc(h.id)}"${h.id===cur?" selected":""}>${esc(h.name||"ohne Namen")}</option>`).join(""); }
+}
+
+/* ---------- Charts ---------- */
+function barChart(el,data,fmt,color){
+  const W=520,H=190,pl=40,pr=6,pt=12,pb=24;
+  const max=Math.max(...data.map(d=>d.v||0),0);
+  const nice=(x)=>{ if(x<=0) return 1; const p=Math.pow(10,Math.floor(Math.log10(x))); const f=x/p; return (f<=1?1:f<=2?2:f<=5?5:10)*p; };
+  const top=nice(max), iw=W-pl-pr, ih=H-pt-pb, bw=iw/data.length, barW=Math.max(6,bw-6);
+  const T=((top/4)%1 && !((top/5)%1))?5:4;
+  let g="";
+  for(let i=0;i<=T;i++){ const y=pt+ih-ih*i/T; g+=`<line class="gridl" x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}"/><text class="axis" x="${pl-6}" y="${y+4}" text-anchor="end">${fmt.axis(top*i/T)}</text>`; }
+  let bars="";
+  data.forEach((d,i)=>{
+    const h=top&&d.v? ih*d.v/top:0, x=pl+i*bw+(bw-barW)/2, y=pt+ih-h, r=Math.min(4,barW/2,h);
+    if(h>0) bars+=`<path d="M${x},${pt+ih} V${y+r} Q${x},${y} ${x+r},${y} H${x+barW-r} Q${x+barW},${y} ${x+barW},${y+r} V${pt+ih} Z" fill="${color}" opacity="${d.partial?.55:1}"/>`;
+    bars+=`<rect x="${pl+i*bw}" y="${pt}" width="${bw}" height="${ih}" fill="transparent" data-i="${i}"/>`;
+    bars+=`<text class="axis" x="${pl+i*bw+bw/2}" y="${H-6}" text-anchor="middle">${d.label}</text>`;
+  });
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img">${g}${bars}</svg><div class="tip"></div>`;
+  const tip=el.querySelector(".tip"), svg=el.querySelector("svg");
+  svg.querySelectorAll("rect[data-i]").forEach(rc=>{
+    const i=+rc.dataset.i;
+    const show=()=>{ const d=data[i]; tip.innerHTML=`<b>${d.full}</b><br>${d.v==null?"keine Daten":fmt.tip(d.v,d)}`;
+      const k=svg.getBoundingClientRect().width/W, h=top&&d.v? ih*d.v/top:0;
+      tip.style.left=((pl+(i+.5)*bw)*k)+"px"; tip.style.top=((pt+ih-h-6)*k)+"px"; tip.classList.add("on"); };
+    rc.addEventListener("mouseenter",show); rc.addEventListener("touchstart",show,{passive:true});
+    rc.addEventListener("mouseleave",()=>tip.classList.remove("on"));
+  });
+}
+function lineChart(el,series,fmt){
+  series=series.filter(se=>se.pts.length);
+  const all=series.flatMap(se=>se.pts);
+  if(all.length<2){ el.innerHTML=`<div class="empty">Ab zwei Tankfüllungen im Zeitraum siehst du hier die Preisentwicklung.</div>`; return; }
+  const W=520,H=170,pl=44,pr=10,pt=12,pb=24;
+  let lo=Math.min(...all.map(p=>p.v)), hi=Math.max(...all.map(p=>p.v));
+  const padv=Math.max(.05,(hi-lo)*.15); lo=Math.floor((lo-padv)*20)/20; hi=Math.ceil((hi+padv)*20)/20;
+  const t0=Math.min(...all.map(p=>p.t)), t1=Math.max(...all.map(p=>p.t)), iw=W-pl-pr, ih=H-pt-pb;
+  const X=t=>pl+(t1===t0?iw/2:(t-t0)/(t1-t0)*iw), Y=v=>pt+ih-(v-lo)/(hi-lo)*ih;
+  let g=""; for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4, y=Y(v); g+=`<line class="gridl" x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}"/><text class="axis" x="${pl-6}" y="${y+4}" text-anchor="end">${fmt.axis(v)}</text>`; }
+  const fd=new Date(t0), ld=new Date(t1);
+  g+=`<text class="axis" x="${pl}" y="${H-6}">${MONTHS[fd.getMonth()]} ${fd.getFullYear()}</text><text class="axis" x="${W-pr}" y="${H-6}" text-anchor="end">${MONTHS[ld.getMonth()]} ${ld.getFullYear()}</text>`;
+  let lines="", dots="", hits=""; const flat=[];
+  series.forEach(se=>{
+    if(se.pts.length>1) lines+=`<path d="${se.pts.map((p,i)=>`${i?"L":"M"}${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ")}" fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round"/>`;
+    se.pts.forEach(p=>{ dots+=`<circle cx="${X(p.t)}" cy="${Y(p.v)}" r="4" fill="${se.color}" stroke="var(--surface)" stroke-width="2"/>`; flat.push({...p,name:se.name}); });
+  });
+  flat.forEach((p,i)=>{ hits+=`<circle cx="${X(p.t)}" cy="${Y(p.v)}" r="14" fill="transparent" data-i="${i}"/>`; });
+  const legend = series.length>1 ? `<div class="legend">${series.map(se=>`<span><span class="fdot" style="background:${se.color}"></span>${se.name}</span>`).join("")}</div>` : "";
+  el.innerHTML=`${legend}<div style="position:relative"><svg viewBox="0 0 ${W} ${H}">${g}${lines}${dots}${hits}</svg><div class="tip"></div></div>`;
+  const tip=el.querySelector(".tip"), svg=el.querySelector("svg");
+  svg.querySelectorAll("circle[data-i]").forEach(c=>{ const i=+c.dataset.i;
+    const show=()=>{ const p=flat[i]; tip.innerHTML=`<b>${p.label}</b><br>${p.name}: ${fmt.tip(p.v)}`; const k=svg.getBoundingClientRect().width/W; tip.style.left=X(p.t)*k+"px"; tip.style.top=(Y(p.v)-8)*k+"px"; tip.classList.add("on"); };
+    c.addEventListener("mouseenter",show); c.addEventListener("touchstart",show,{passive:true}); c.addEventListener("mouseleave",()=>tip.classList.remove("on")); });
+}
+function monthsFor(pr){
+  const now=today(); let start, n;
+  if(state.period==="season"){ start=hjRange(state.seasonY)[0]; n=12; }
+  else if(state.period==="year"){ start=new Date(now.getFullYear(),0,1); n=12; }
+  else if(state.period==="12m"){ start=new Date(now.getFullYear(),now.getMonth()-11,1); n=12; }
+  else { const f=sortedAsc()[0]; const d=f?parseD(f.date):now; start=new Date(d.getFullYear(),d.getMonth(),1); n=Math.max(1,(now.getFullYear()-start.getFullYear())*12+now.getMonth()-start.getMonth()+1); }
+  const out=[]; for(let i=0;i<n;i++) out.push(new Date(start.getFullYear(),start.getMonth()+i,1));
+  return out;
+}
+function renderCharts(ivs,pr){
+  const css=getComputedStyle(document.documentElement);
+  const accent=css.getPropertyValue("--accent").trim(), blue=css.getPropertyValue("--blue").trim();
+  const now=today(), months=[], ms=monthsFor(pr), step=Math.ceil(ms.length/12);
+  ms.forEach((a,i)=>{ const b=new Date(a.getFullYear(),a.getMonth()+1,1);
+    const s=share(ivs,a,b), mdays=(b-a)/DAY;
+    const lbl = step===1 ? MONTHS[a.getMonth()] : (i%step? "" : `${MONTHS[a.getMonth()]} ${String(a.getFullYear()).slice(2)}`);
+    months.push({label:lbl, full:`${MONTHS_L[a.getMonth()]} ${a.getFullYear()}`, rate:s.days? s.liters/s.days:null, cost:s.cost, liters:s.liters, cov:s.days, partial: s.days>0 && s.days<mdays-0.5});
+  });
+  $("cRateT").textContent=`Ø Liter pro Tag, je Monat · ${pr[2]}`;
+  barChart($("cRate"), months.map(m=>({...m,v:m.rate})), {axis:v=>n1.format(v), tip:(v,d)=>`${n2.format(v)} l/Tag${d.partial?`<br><span style="opacity:.7">nur ${n_(Math.round(d.cov))} Tage erfasst</span>`:""}`}, accent);
+  const tc=months.reduce((a,m)=>a+m.cost,0);
+  $("cCostT").textContent=`${pr[2]}: ${eur(tc)} · anteilig nach Verbrauch`;
+  barChart($("cCost"), months.map(m=>({...m,v:m.cov?m.cost:null})), {axis:v=>n0.format(v)+" €", tip:(v,d)=>`${eur(v)} · ${n0.format(d.liters)} l${d.partial?`<br><span style="opacity:.7">Monat nur teilweise erfasst</span>`:""}`}, blue);
+
+  const [pa,pb]=pr;
+  const inP=sortedAsc().filter(f=>{const d=parseD(f.date);return (!pa||d>=pa)&&(!pb||d<pb);});
+  const priced=inP.filter(f=>f.liters&&f.total);
+  const series=FUEL_NAMES.map(name=>({name,color:fuelColor(name),pts:priced.filter(f=>fuelOf(f)===name).map(f=>({t:parseD(f.date).getTime(), v:f.total/f.liters, label:fmtDate(f.date)}))}));
+  const lastP=priced[priced.length-1];
+  $("cPriceT").textContent = lastP? `Zuletzt ${n3.format(lastP.total/lastP.liters)} €/l (${fuelOf(lastP)}) · ${pr[2]}` : pr[2];
+  lineChart($("cPrice"), series, {axis:v=>n2.format(v), tip:v=>`${n3.format(v)} €/l`});
+
+  // Nach Kraftstoff
+  const byF=FUEL_NAMES.map(name=>{ const fs=inP.filter(f=>fuelOf(f)===name); const L=fs.reduce((a,f)=>a+(f.liters||0),0), C=fs.reduce((a,f)=>a+(f.total||0),0); return {name,n:fs.length,L,C}; }).filter(r=>r.n);
+  const totL=byF.reduce((a,r)=>a+r.L,0);
+  $("fuelCard").classList.toggle("hidden", !byF.length);
+  $("fuelTable").innerHTML=`<table class="cmp"><tr><th>Kraftstoff</th><th>Liter</th><th>Betrag</th><th>€/l</th><th>Anteil</th></tr>${byF.map(r=>`<tr><td><span class="fdot" style="background:${fuelColor(r.name)}"></span>${r.name}</td><td>${n0.format(r.L)}</td><td>${eur(r.C)}</td><td>${n3.format(r.L?r.C/r.L:0)}</td><td>${n0.format(totL?r.L/totL*100:0)} %</td></tr>`).join("")}</table><div class="hint" style="margin-top:8px">Getankte Mengen im Zeitraum · ${pr[2]}</div>`;
+
+  // Saisonvergleich
+  const f=sortedAsc(); if(!f.length||!ivs.length){ $("seasonCard").classList.add("hidden"); return; }
+  $("seasonCard").classList.remove("hidden");
+  let y=hjOf(parseD(f[0].date)); const lastY=curSeason(); const rows=[];
+  for(;y<=lastY;y++){ const [ra,rb]=hjRange(y); const s=share(ivs,ra,rb); if(s.days) rows.push({y,...s}); }
+  if(!rows.length){ $("seasonCard").classList.add("hidden"); return; }
+  $("seasonTable").innerHTML=`<table class="cmp"><tr><th>Heizjahr</th><th>Liter</th><th>Kosten</th><th>l/Tag</th><th>€/l</th></tr>${rows.reverse().map(r=>`<tr><td>${seasonName(r.y)}</td><td>${n0.format(r.liters)}</td><td>${eur(r.cost)}</td><td>${n2.format(r.liters/r.days)}</td><td>${n3.format(r.liters?r.cost/r.liters:0)}</td></tr>`).join("")}</table>`;
+}
+
+/* ---------- CSV ---------- */
+function toCSV(ivByEnd){
+  const rows=[["Datum","Kraftstoff","Liter","Preis_EUR_l","Betrag_EUR","Voll","Tage_seit_Vollbetankung","Verbrauch_l_Tag","Kosten_EUR_Tag","Notiz"]];
+  for(const f of sortedAsc()){ const iv=ivByEnd.get(f.id);
+    rows.push([fmtDate(f.date),fuelOf(f),n2.format(f.liters||0),f.liters?n3.format((f.total||0)/f.liters):"",n2.format(f.total||0),f.full?"ja":"nein",iv?iv.days:"",iv?n2.format(iv.rate):"",iv?n2.format(iv.costRate):"",f.note||""]); }
+  return rows.map(r=>r.map(c=>{c=String(c);return /[;"\n]/.test(c)?`"${c.replace(/"/g,'""')}"`:c;}).join(";")).join("\n");
+}
+const APP=window.AndroidBridge||null;
+function shareText(text,title,file){
+  if(APP && APP.share){ try{ APP.share(text,title,file); return; }catch(e){} }
+  $("bkOut").value=text; $("bkOutWrap").classList.remove("hidden"); $("bkInWrap").classList.add("hidden");
+  $("bkOutHint").textContent=title+" – Text kopieren und z. B. in einer Notiz oder Mail speichern.";
+  navigator.clipboard && navigator.clipboard.writeText(text).then(()=>toast("In die Zwischenablage kopiert"),()=>{ $("bkOut").select(); });
+}
+$("csvCopy").onclick=()=>shareText(toCSV(new Map(intervals().map(iv=>[iv.end.id,iv]))),`Tankfüllungen ${H().name||""} (CSV)`.replace("  "," "),"standheizung.csv");
+$("bkExport").onclick=()=>shareText(JSON.stringify({app:"standheizung-tank",v:3,exported:new Date().toISOString(),...profileBody(),fills:state.fills.map(({id,...r})=>({...r,heaterId:hid(r)}))}),"Standheizung-Backup","standheizung-backup.json");
+$("bkShowImport").onclick=()=>{ $("bkInWrap").classList.toggle("hidden"); $("bkOutWrap").classList.add("hidden"); };
+$("bkImport").onclick=async()=>{
+  let d; try{ d=JSON.parse($("bkIn").value.trim()); }catch(e){ toast("Ungültiges Backup"); return; }
+  if(!d||!Array.isArray(d.fills)){ toast("Ungültiges Backup"); return; }
+  const map={}; let changed=false;
+  if(Array.isArray(d.heaters)&&d.heaters.length){
+    for(const bh of d.heaters){ if(!bh||!bh.id) continue;
+      let t=state.heaters.find(h=>h.id===bh.id) || (bh.name && state.heaters.find(h=>h.name===bh.name));
+      if(!t && state.heaters.length===1 && !H().name && !heaterFills().length){ t=H(); Object.assign(t,newHeater({...bh,id:t.id})); changed=true; }
+      if(!t){ t=newHeater({...bh, id: state.heaters.some(h=>h.id===bh.id)? undefined : bh.id}); state.heaters.push(t); changed=true; }
+      map[bh.id]=t.id; }
+  } else if(d.settings && typeof d.settings==="object" && !H().name && !num(H().tank)){
+    const ds=d.settings; Object.assign(H(),{name:String(ds.name||"").slice(0,60), model:String(ds.model||"").slice(0,80), fuel:FUEL_NAMES.includes(ds.fuel)?ds.fuel:"Diesel", tank:num(ds.tank)}); changed=true;
+  }
+  const key=f=>`${hid(f)}|${String(f.date).slice(0,10)}|${(+f.liters).toFixed(2)}|${(+f.total||0).toFixed(2)}`;
+  const have=new Set(state.fills.map(key)); let n=0;
+  if(changed) saveSettings();
+  for(const f of d.fills){
+    if(!f||!f.date||!(+f.liters)) continue;
+    const c={heaterId: map[f.heaterId]||state.active, date:String(f.date).slice(0,10), fuel: FUEL_NAMES.includes(f.fuel)? f.fuel : fuelOf({}), liters:+f.liters, total:+f.total||0, full:f.full!==false, note:String(f.note||"").slice(0,200), created:+f.created||Date.now()};
+    if(have.has(key(c))) continue; have.add(key(c));
+    try{ await saveFill(c); n++; }catch(e){ break; }
+  }
+  $("bkIn").value=""; $("bkInWrap").classList.add("hidden");
+  toast(n? `${n} Tankfüllungen importiert` : "Nichts Neues zum Importieren");
+};
+window.__handleBack=()=>{
+  if($("ov").classList.contains("on")){ closeForm(); return true; }
+  if($("hov").classList.contains("on")){ $("hov").classList.remove("on"); return true; }
+  if(state.view!=="home"){ go("home"); return true; }
+  return false;
+};
+
+/* ---------- Navigation ---------- */
+const VIEWS=["home","list","stats","settings"];
+function go(v){
+  if(!VIEWS.includes(v)) v="home"; state.view=v;
+  VIEWS.forEach(x=>$("v-"+x).classList.toggle("hidden",x!==v));
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+  $("fab").classList.toggle("hidden",v==="settings");
+  if(location.hash.slice(1)!==v && !(v==="home"&&!location.hash)) history.replaceState(null,"","#"+v);
+  render(); window.scrollTo(0,0);
+}
+document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>go(b.dataset.v));
+window.addEventListener("hashchange",()=>go(location.hash.slice(1)));
+document.querySelectorAll("#period button").forEach(b=>b.onclick=()=>{ state.period=b.dataset.p; document.querySelectorAll("#period button").forEach(x=>x.classList.toggle("on",x===b)); render(); });
+$("seasonSel").addEventListener("change",()=>{ state.seasonY=+$("seasonSel").value; render(); });
+const fuelOpts=FUEL_NAMES.map(n=>`<option>${n}</option>`).join(""); $("sFuel").innerHTML=fuelOpts; $("fFuel").innerHTML=fuelOpts;
+if(darkMQ&&darkMQ.addEventListener) darkMQ.addEventListener("change",()=>render());
+document.addEventListener("click",ev=>{ const row=ev.target.closest(".entry"); if(!row) return; const f=state.fills.find(x=>x.id===row.dataset.id); if(f) openForm(f); });
+
+$("sSave").onclick=()=>{
+  Object.assign(H(),{name:$("sName").value.trim().slice(0,60), model:$("sModel").value.trim().slice(0,80), fuel:$("sFuel").value, tank:num($("sTank").value)});
+  document.activeElement && document.activeElement.blur(); saveSettings(); toast("Gespeichert");
+};
+$("sYearStart").innerHTML=MONTHS_L.map((m,i)=>`<option value="${i}">${m}${i===8?" (empfohlen)":i===0?" (= Kalenderjahr)":""}</option>`).join("");
+$("sYearStart").addEventListener("change",()=>{ state.settings.yearStart=+$("sYearStart").value; state.seasonY=null; saveSettings(); toast(`Heizjahr: ${hjSpan()}`); });
+$("wSel").addEventListener("change",()=>{ state.settings.widget=$("wSel").value||null; saveSettings(); });
+
+/* Heizungen wechseln / hinzufügen / löschen */
+function renderHeaterList(){
+  $("hList").innerHTML=state.heaters.map(h=>{ const n=heaterFills(h).length;
+    return `<div class="hrow${h.id===state.active?" on":""}" data-h="${esc(h.id)}"><div class="hi">🔥</div><div><div class="hn">${esc(h.name||"ohne Namen")}</div><div class="hs">${esc(h.model||h.fuel||"")}${h.model||h.fuel?" · ":""}${plural(n,"Tankfüllung","Tankfüllungen")}</div></div>${h.id===state.active?'<span class="ck">✓</span>':""}</div>`; }).join("");
+}
+$("hsw").onclick=()=>{ renderHeaterList(); $("hov").classList.add("on"); };
+$("hClose").onclick=()=>$("hov").classList.remove("on");
+$("hov").addEventListener("click",ev=>{ if(ev.target===$("hov")) $("hov").classList.remove("on"); const r=ev.target.closest(".hrow"); if(r){ state.active=r.dataset.h; state.seasonY=null; saveSettings(); $("hov").classList.remove("on"); toast(H().name||"Heizung gewechselt"); } });
+function addHeater(){
+  const h=newHeater({name:`Heizung ${state.heaters.length+1}`, fuel:H().fuel});
+  state.heaters.push(h); state.active=h.id; state.seasonY=null; saveSettings();
+  $("hov").classList.remove("on"); go("settings");
+  setTimeout(()=>{ $("sName").focus(); $("sName").select(); },80); toast("Neue Heizung angelegt – gib ihr einen Namen");
+}
+$("hAdd").onclick=addHeater; $("hAdd2").onclick=addHeater;
+$("hDel").onclick=async()=>{
+  const b=$("hDel"); if(state.heaters.length<2) return;
+  if(b.dataset.confirm!=="1"){ b.dataset.confirm="1"; b.textContent=`Mit ${plural(heaterFills().length,"Eintrag","Einträgen")} löschen?`; setTimeout(()=>{b.dataset.confirm="";b.textContent="Löschen";},4000); return; }
+  b.dataset.confirm=""; b.textContent="Löschen";
+  const h=H(); const ids=heaterFills(h).map(f=>f.id);
+  state.heaters=state.heaters.filter(x=>x.id!==h.id); state.active=state.heaters[0].id;
+  if(state.settings.widget===h.id) state.settings.widget=null;
+  for(const id of ids){ await deleteFill(id); }
+  saveSettings(); toast("Heizung gelöscht");
+};
+
+/* Erinnerungen */
+function setNotifyOn(v){ state.settings.notify.on=v; saveSettings(); if(v) toast("Erinnerung ist an 🔔"); }
+$("nOn").addEventListener("change",()=>{
+  const want=$("nOn").checked;
+  if(!want){ setNotifyOn(false); return; }
+  const st=notifStatus();
+  if(st==="granted"){ setNotifyOn(true); return; }
+  $("nOn").checked=false;
+  window.__onNotifPerm=(res)=>{ window.__onNotifPerm=null; if(res==="granted") setNotifyOn(true); else { state.settings.notify.on=true; saveSettings(); } };
+  try{ APP.requestNotifications(); }catch(e){}
+});
+$("nDays").addEventListener("click",ev=>{ const b=ev.target.closest(".pill"); if(!b) return; state.settings.notify.days=+b.dataset.d; saveSettings(); });
+$("nHour").addEventListener("click",ev=>{ const b=ev.target.closest(".pill"); if(!b) return; state.settings.notify.hour=+b.dataset.h; saveSettings(); });
+$("nHeaters").addEventListener("change",ev=>{ const i=ev.target.closest("input[data-hn]"); if(!i) return; const h=state.heaters.find(x=>x.id===i.dataset.hn); if(h){ h.notify=i.checked; saveSettings(); } });
+$("nOpenSys").onclick=()=>{ try{ APP.openNotificationSettings(); }catch(e){} };
+$("nTest").onclick=()=>{ try{ const t=tankInfo(H()); APP.testNotification(`${t.name}: Tank bald leer`, "So sieht deine Erinnerung aus. Zeit zum Tanken! ⛽"); }catch(e){ toast("Nur in der Android-App"); } };
+window.__onResume=()=>{ lastNative=""; render(); maybeCheckUpdate(false); };
+
+/* ---------- App-Updates (nur Android-App) ---------- */
+const UPD_KEY="standheizung-upd";
+const updStore=()=>{ try{ return JSON.parse(localStorage.getItem(UPD_KEY))||{}; }catch(e){ return {}; } };
+const updSave=(o)=>{ try{ localStorage.setItem(UPD_KEY,JSON.stringify({...updStore(),...o})); }catch(e){} };
+let upd=null, updProg=null, updManual=false;
+function maybeCheckUpdate(manual){
+  if(!APP||!APP.checkUpdate) return;
+  const last=updStore().last||0;
+  if(!manual && Date.now()-last < 6*3600*1000 && upd) return;
+  updManual=manual; $("verStatus").textContent="Suche nach Updates …";
+  try{ APP.checkUpdate(); }catch(e){}
+}
+window.__onUpdate=(res)=>{
+  upd=res; updSave({last:Date.now()});
+  if(updManual && res && res.ok && !res.available) toast("Du hast die neueste Version 👍");
+  if(updManual && res && !res.ok) toast("Keine Verbindung zu GitHub");
+  updManual=false; renderUpdate();
+};
+window.__onUpdateProgress=(p)=>{
+  updProg=p;
+  if(p===-1){ toast("Download fehlgeschlagen – bitte später nochmal"); updProg=null; }
+  if(p===-2){ updProg=null; }
+  renderUpdate();
+};
+function renderUpdate(){
+  const isApp=!!(APP&&APP.checkUpdate); $("verCard").classList.toggle("hidden",!isApp);
+  if(!isApp) return;
+  let cur="?"; try{ cur=APP.appVersion(); }catch(e){}
+  $("verName").textContent=`Version ${cur}`;
+  const b=$("updBanner");
+  if(upd && upd.ok && upd.available){
+    $("verStatus").textContent=`Neue Version ${upd.name} verfügbar`;
+    const dismissed = updStore().skip===upd.code && updProg==null;
+    const note=(upd.notes||"").split("\n").map(x=>x.trim()).filter(Boolean)[0]||"Verbesserungen und Fehlerbehebungen";
+    let right, sub=esc(note);
+    if(updProg!=null && updProg>=0 && updProg<100){ right=""; sub=`Wird geladen … ${updProg} %<div class="pb"><i style="width:${updProg}%"></i></div>`; }
+    else if(updProg===100){ right=""; sub="Installation wird geöffnet …"; }
+    else right=`<button class="later" id="updLater">Später</button><button class="go" id="updGo">Installieren</button>`;
+    b.innerHTML=`<div class="ui">⬆️</div><div style="min-width:0;flex:1"><div class="ut">Update auf ${esc(upd.name)} verfügbar</div><div class="us">${sub}</div></div><div class="ub">${right}</div>`;
+    b.classList.toggle("hidden", dismissed);
+    const go=$("updGo"), later=$("updLater");
+    if(go) go.onclick=()=>{ updProg=0; renderUpdate(); try{ APP.installUpdate(upd.url); }catch(e){ updProg=null; renderUpdate(); } };
+    if(later) later.onclick=()=>{ updSave({skip:upd.code}); b.classList.add("hidden"); toast("Erinnere dich in den Einstellungen → App"); };
+  } else {
+    b.classList.add("hidden");
+    $("verStatus").textContent = !upd ? "–" : upd.ok ? "Du hast die neueste Version" : "Update-Prüfung gerade nicht möglich";
+  }
+}
+$("verCheck").onclick=()=>{ updSave({skip:null}); maybeCheckUpdate(true); };
+
+/* ---------- Formular ---------- */
+let editing=null;
+const recalcTot=()=>{ const l=num($("fLit").value),p=num($("fPrice").value); if(l!=null&&p!=null) $("fTot").value=(l*p).toFixed(2); };
+$("fLit").addEventListener("input",recalcTot); $("fPrice").addEventListener("input",recalcTot);
+$("fTot").addEventListener("input",()=>{ const l=num($("fLit").value),t=num($("fTot").value); if(l&&t!=null) $("fPrice").value=(t/l).toFixed(3); });
+const lastPriceFor=(name)=>{ const s=sortedAsc().filter(x=>x.liters&&x.total&&fuelOf(x)===name); return s.length? (s[s.length-1].total/s[s.length-1].liters).toFixed(3) : ""; };
+$("fFuel").addEventListener("change",()=>{ if(editing) return; const p=lastPriceFor($("fFuel").value); $("fPrice").value=p; recalcTot(); });
+function openForm(f={}){
+  editing=f.id?f:null;
+  $("fTitle").textContent=editing?"Tankfüllung bearbeiten":"Getankt";
+  $("fDate").value=f.date||toInput(new Date());
+  $("fLit").value=f.liters??"";
+  const lastP=(()=>{const s=sortedAsc().filter(x=>x.liters&&x.total);return s.length? (s[s.length-1].total/s[s.length-1].liters).toFixed(3):"";})();
+  $("fPrice").value=f.liters&&f.total? (f.total/f.liters).toFixed(3) : lastP;
+  $("fTot").value=f.total??"";
+  $("fFull").checked=f.full??true;
+  const lastFill=sortedAsc().slice(-1)[0];
+  $("fFuel").value = f.id ? fuelOf(f) : (lastFill? fuelOf(lastFill) : (FUEL_NAMES.includes(H().fuel)?H().fuel:"Diesel"));
+  if(!f.id){ const lp=lastPriceFor($("fFuel").value); if(lp) $("fPrice").value=lp; }
+  $("fNote").value=f.note||"";
+  $("fDel").classList.toggle("hidden",!editing);
+  $("ov").classList.add("on");
+  if(!editing) setTimeout(()=>$("fLit").focus(),50);
+}
+function closeForm(){ $("ov").classList.remove("on"); editing=null; }
+$("fab").onclick=()=>openForm();
+$("fCancel").onclick=closeForm;
+$("ov").addEventListener("click",ev=>{ if(ev.target===$("ov")) closeForm(); });
+document.addEventListener("keydown",ev=>{ if(ev.key==="Escape") closeForm(); });
+$("fDel").onclick=async()=>{
+  const b=$("fDel");
+  if(b.dataset.confirm!=="1"){ b.dataset.confirm="1"; b.textContent="Wirklich?"; setTimeout(()=>{b.dataset.confirm="";b.textContent="Löschen";},3000); return; }
+  b.dataset.confirm=""; b.textContent="Löschen"; const id=editing.id; closeForm(); await deleteFill(id); toast("Gelöscht");
+};
+$("form").addEventListener("submit",async ev=>{
+  ev.preventDefault();
+  const liters=num($("fLit").value); if(!liters){ toast("Bitte Menge eingeben"); return; }
+  const price=num($("fPrice").value), total=num($("fTot").value) ?? (price!=null? +(liters*price).toFixed(2) : 0);
+  const f={date:$("fDate").value, fuel:$("fFuel").value, liters, total, full:$("fFull").checked, note:$("fNote").value.trim(), created: editing?.created ?? Date.now()};
+  f.heaterId = editing ? hid(editing) : state.active;
+  if(editing) f.id=editing.id;
+  closeForm();
+  try{ await saveFill(f); toast("Gespeichert"); }catch(e){}
+});
+
+go(location.hash.slice(1)||"home");
+init();
+renderUpdate(); setTimeout(()=>maybeCheckUpdate(false),800);
+})();
+</script>
+</body>
+</html>

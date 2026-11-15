@@ -1,0 +1,59 @@
+name: APK bauen
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Signaturschlüssel aus den Secrets holen
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Die Secrets KEYSTORE_BASE64 und KEYSTORE_PASSWORD fehlen (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > app/release.keystore
+          printf 'storeFile=release.keystore\nstorePassword=%s\nkeyAlias=standheizung\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > app/keystore.properties
+
+      - name: APK bauen
+        run: |
+          chmod +x ./gradlew
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          ./gradlew --no-daemon assembleRelease
+          VC=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          VN=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "VC=$VC" >> "$GITHUB_ENV"
+          echo "VN=$VN" >> "$GITHUB_ENV"
+          cp app/build/outputs/apk/release/app-release.apk "standheizung-$VC.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Standheizung-APK
+          path: standheizung-*.apk
+
+      - name: Release veröffentlichen (für das Update in der App)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v$VN" >/dev/null 2>&1; then
+            echo "Release v$VN gibt es schon – versionName erhöhen für ein neues Update."
+            exit 0
+          fi
+          git log -1 --pretty=%B | grep -v -E '^(Co-Authored-By|Claude-Session):' > notes.txt
+          gh release create "v$VN" "standheizung-$VC.apk" --title "Version $VN" --notes-file notes.txt
