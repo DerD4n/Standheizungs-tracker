@@ -327,7 +327,9 @@ table.cmp tr:last-child td{border-bottom:0}
     </div>
     <div class="card">
       <h2>So wird gerechnet</h2>
-      <p style="margin:0;font-size:13px;color:var(--text-2)">Wird der Tank jedes Mal voll gemacht, ist die getankte Menge genau das, was seit dem letzten Volltanken verbraucht wurde. Daraus und aus den Tagen dazwischen ergibt sich der Verbrauch pro Tag. Teilfüllungen werden bis zum nächsten Volltanken zusammengezählt. Die erste Füllung ist der Startpunkt und zählt noch nicht als Verbrauch.</p>
+      <p style="margin:0 0 8px;font-size:13px;color:var(--text-2)"><b>Verbrauch:</b> Was du beim Volltanken nachfüllst, wurde seit dem letzten Volltanken verbraucht – geteilt durch die Tage dazwischen ergibt das den Verbrauch pro Tag. Teilfüllungen zählen zur nächsten Vollbetankung, die erste Füllung ist nur der Startpunkt.</p>
+      <p style="margin:0 0 8px;font-size:13px;color:var(--text-2)"><b>Kosten:</b> Mit eingetragener Tankgröße wird verbraucht, was zuerst im Tank war – zu dem Preis, zu dem du es gekauft hast (wichtig, wenn du z.&nbsp;B. zwischen Diesel und Heizöl wechselst). Ohne Tankgröße zählt der Preis der Nachfüllung. Die Kosten reichen bis zur letzten Vollbetankung.</p>
+      <p style="margin:0;font-size:13px;color:var(--text-2)"><b>Prognose:</b> Standard-Heizkurve nach Gradtagszahlen (viel im Winter, fast nichts im Sommer), hochgerechnet aus deinem Verbrauch. Ab dem zweiten Jahr ersetzen deine eigenen Monatswerte die Kurve.</p>
     </div>
     <div class="card">
       <h2>Datensicherung</h2>
@@ -390,6 +392,7 @@ table.cmp tr:last-child td{border-bottom:0}
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="calc.js"></script>
 <script>
 (() => {
 "use strict";
@@ -434,29 +437,9 @@ const plural=(n,a,b)=>`${n_(n)} ${n===1?a:b}`; const n_=(n)=>n0.format(n);
    Vollbetankung bis einschließlich der aktuellen; Zeitraum = Tage zwischen beiden. */
 function heaterFills(h){ const id=(h||H()).id; return state.fills.filter(f=>hid(f)===id); }
 function sortedAsc(h){ return heaterFills(h).sort((a,b)=>parseD(a.date)-parseD(b.date) || (a.created||0)-(b.created||0)); }
-function intervals(h){
-  const f=sortedAsc(h); const out=[]; let start=null, accL=0, accC=0, members=[];
-  for(const x of f){
-    if(start===null){ if(x.full) start=x; continue; }
-    accL+=x.liters||0; accC+=x.total||0; members.push(x);
-    if(x.full){
-      const a=parseD(start.date), b=parseD(x.date), d=days(a,b);
-      if(d>0) out.push({from:a,to:b,days:d,liters:accL,cost:accC,rate:accL/d,costRate:accC/d,price:accL?accC/accL:0,end:x,members:[...members]});
-      else if(out.length){ const last=out[out.length-1]; last.liters+=accL; last.cost+=accC; last.rate=last.liters/last.days; last.costRate=last.cost/last.days; last.end=x; }
-      start=x; accL=0; accC=0; members=[];
-    }
-  }
-  return out;
-}
-// Verbrauch/Kosten anteilig auf einen Zeitraum [a,b) verteilen
-function share(ivs,a,b){
-  let L=0,C=0,D=0;
-  for(const iv of ivs){
-    const s=Math.max(iv.from.getTime(),a?a.getTime():-Infinity), e=Math.min(iv.to.getTime(),b?b.getTime():Infinity);
-    if(e>s){ const d=(e-s)/DAY; L+=iv.rate*d; C+=iv.costRate*d; D+=d; }
-  }
-  return {liters:L,cost:C,days:D};
-}
+function intervals(h){ h=h||H(); return Calc.intervals(heaterFills(h), num(h.tank)||0); }
+// Verbrauch/Kosten anteilig auf einen Zeitraum [a,b) verteilen (ganze Tage, zeitumstellungsfest)
+const share=(ivs,a,b)=>Calc.share(ivs,a,b);
 const seasonName=(y)=> SM()===0 ? `${y}` : `${y}/${String(y+1).slice(2)}`;
 function periodRange(p, sy){
   const now=today();
@@ -542,6 +525,7 @@ async function deleteFill(id){
 /* ---------- Render ---------- */
 const kpi=(l,v,u,h)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v}${u?`<small>${u}</small>`:""}</div>${h?`<div class="h">${h}</div>`:""}</div>`;
 
+function lastFullLabel(){ const ivs=intervals(); if(!ivs.length) return "–"; const d=ivs[ivs.length-1].to; return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.`; }
 function heroHTML(){
   const ivs=intervals(), f=sortedAsc();
   if(!f.length) return `<div class="lbl">Willkommen!</div><div style="margin-top:6px;font-size:15px">Trag beim nächsten Tanken einfach Menge und Preis ein – am besten jedes Mal voll machen.<br><span style="color:var(--text-2);font-size:13px">Ab der zweiten Vollbetankung siehst du hier deinen Verbrauch.</span></div>`;
@@ -596,10 +580,10 @@ function render(){
   const ss=periodStats(sr);
   $("kpiSeason").innerHTML =
     kpi("Verbraucht", n0.format(ss.liters), "l", ss.days? `Ø ${n2.format(ss.rate)} l pro Tag`:"noch keine Daten") +
-    kpi("Kosten", n0.format(ss.cost), "€", ss.days? `Ø ${eur(ss.costDay)} pro Tag`:"–") +
+    kpi("Kosten", n0.format(ss.cost), "€", ss.days? `bis ${lastFullLabel()} · Ø ${eur(ss.costDay)}/Tag`:"–") +
     kpi("Getankt", n0.format(ss.boughtL), "l", `${plural(ss.fills,"Füllung","Füllungen")} · ${eur(ss.bought)}`) +
     kpi("Ø Preis", ss.avgPrice? n3.format(ss.avgPrice):"–", ss.avgPrice?"€/l":"", "über alle Füllungen");
-  $("forecast").innerHTML=forecastHTML();
+  $("forecast").innerHTML=forecastHTML(); renderForecastChart();
   $("recent").innerHTML = desc.length? desc.slice(0,4).map(f=>fillHTML(f,ivByEnd)).join("") : `<div class="empty">Noch keine Tankfüllung.<br>Tippe auf <b>+ Getankt</b>.</div>`;
 
   if(!desc.length) $("fullList").innerHTML=`<div class="empty">Noch keine Tankfüllung.</div>`;
@@ -619,7 +603,7 @@ function render(){
   const ps=periodStats(pr);
   $("kpiStats").innerHTML =
     kpi("Verbraucht", n0.format(ps.liters), "l", ps.days? `über ${plural(Math.round(ps.days),"Tag","Tage")}`:"noch keine Daten") +
-    kpi("Kosten", n0.format(ps.cost), "€", "anteilig nach Verbrauch") +
+    kpi("Kosten", n0.format(ps.cost), "€", ps.days? `verheizt bis ${lastFullLabel()}`:"anteilig nach Verbrauch") +
     kpi("Ø pro Tag", n2.format(ps.rate), "l", eur(ps.costDay)+" pro Tag") +
     kpi("Ø pro Monat", n0.format(ps.costDay*30.4), "€", `${n0.format(ps.rate*30.4)} l pro Monat`) +
     kpi("Getankt", n0.format(ps.boughtL), "l", `${plural(ps.fills,"Füllung","Füllungen")} · ${eur(ps.bought)}`) +
@@ -639,37 +623,55 @@ function render(){
 /* ---------- Prognose ----------
    Verbrauch je Kalendermonat aus allen bisherigen Daten (l/Tag); fehlt ein Monat, wird der
    aktuelle Verbrauch angenommen. Kosten mit dem zuletzt bezahlten Literpreis. */
+function lastPaidPrice(h){ const p=sortedAsc(h).filter(f=>f.liters&&f.total); return p.length? p[p.length-1].total/p[p.length-1].liters : null; }
 function forecast(){
   const ivs=intervals(); if(!ivs.length) return null;
-  const y=curSeason(), [A,B]=hjRange(y), now=today();
-  const cur=ivs[ivs.length-1], lastTo=cur.to;
-  const acc=Array.from({length:12},()=>({L:0,D:0}));
-  for(let d=new Date(ivs[0].from.getFullYear(),ivs[0].from.getMonth(),1); d<lastTo; d=new Date(d.getFullYear(),d.getMonth()+1,1)){
-    const s=share(ivs,d,new Date(d.getFullYear(),d.getMonth()+1,1)); acc[d.getMonth()].L+=s.liters; acc[d.getMonth()].D+=s.days;
-  }
-  const priced=sortedAsc().filter(f=>f.liters&&f.total); const lp=priced.length? priced[priced.length-1] : null;
-  const price = lp? lp.total/lp.liters : cur.price;
-  let fb=0, tot=0;
-  const est=(a,b)=>{ let L=0; for(let t=a.getTime(); t<b.getTime(); t+=DAY){ const m=new Date(t).getMonth(); const r=acc[m].D>=10? acc[m].L/acc[m].D : null; if(r==null) fb++; tot++; L+=r??cur.rate; } return L; };
-  const known=share(ivs,A,B);
-  const gapFrom=new Date(Math.max(A.getTime(),lastTo.getTime()));
-  const gapL = gapFrom<now ? est(gapFrom,now) : 0;
-  const restL = now<B ? est(now<A?A:now,B) : 0;
-  const spent=known.cost+gapL*price, rest=restL*price;
-  return {y,A,B,spent,rest,total:spent+rest,liters:known.liters+gapL+restL,price,quality: tot? 1-fb/tot : 1, hasPrevYear: ivs[0].from <= new Date(A.getTime()-300*DAY)};
+  return Calc.forecast(ivs,{yearStart:SM(), today:today(), price:lastPaidPrice()});
 }
+const roundEur=(v)=>{ const r=v>=1000?50:v>=200?10:5; return n0.format(Math.round(v/r)*r)+" €"; };
 function forecastHTML(){
   const fc=forecast(); if(!fc) return "";
-  const pct=fc.total? Math.min(100,fc.spent/fc.total*100):0;
-  const end=new Date(fc.B.getTime()-DAY);
-  const q = fc.quality>=.75 ? (fc.hasPrevYear? "Basiert auf deinem Verbrauch der Vorjahre im jeweiligen Monat." : "Basiert auf deinem bisherigen Verbrauch je Monat.")
-          : "Grobe Schätzung – wird genauer, je länger du einträgst.";
+  const pct=fc.high? Math.min(100,fc.spent/fc.high*100):0, pctMid=fc.high? Math.min(100,fc.total/fc.high*100):0;
+  const end=new Date(fc.to.getTime()-DAY);
+  const q = fc.usedOwn ? "Kurve aus deinen eigenen Monatswerten der Vorjahre, ergänzt um die Standard-Heizkurve."
+    : fc.coverage>=.6 ? "Standard-Heizkurve (Gradtagszahlen), angepasst an deinen Verbrauch."
+    : "Erstes Jahr: Standard-Heizkurve (Gradtagszahlen), hochgerechnet aus deinen bisherigen Werten. Wird mit jedem Monat genauer.";
+  const pre = fc.preTracking ? " Monate vor deinem ersten Eintrag sind mitgeschätzt." : "";
   return `<div class="fc">
-    <div class="top"><span class="lbl">Prognose Heizjahr ${seasonName(fc.y)}</span><span class="val">ca. ${eur(Math.round(fc.total/10)*10).replace(",00","")}</span></div>
-    <div class="bar"><i style="width:${pct}%"></i><b style="left:${pct}%;width:${100-pct}%"></b></div>
+    <div class="top"><span class="lbl">Prognose Heizjahr ${seasonName(fc.y)}</span><span class="val">ca. ${roundEur(fc.total)}</span></div>
+    <div class="t" style="margin-top:2px"><span>Spanne ${roundEur(fc.low)} – ${roundEur(fc.high)}</span><span>≈ ${n0.format(fc.liters)} l</span></div>
+    <div class="bar"><i style="width:${pct}%"></i><b style="left:${pct}%;width:${Math.max(0,pctMid-pct)}%"></b></div>
     <div class="t"><span>bisher ~${n0.format(fc.spent)} €</span><span>noch ~${n0.format(fc.rest)} € bis ${fmtDate(toInput(end))}</span></div>
-    <div class="q">≈ ${n0.format(fc.liters)} l gesamt · ${n3.format(fc.price)} €/l angenommen. ${q}</div>
+    <div class="chart fcchart" id="fcChart"></div>
+    <div class="q">${q}${pre} Kosten der Restmenge mit ${n3.format(fc.price)} €/l (zuletzt bezahlt).</div>
   </div>`;
+}
+function renderForecastChart(){
+  const el=$("fcChart"); if(!el) return; const fc=forecast(); if(!fc) return;
+  const css=getComputedStyle(document.documentElement), accent=css.getPropertyValue("--accent").trim();
+  const W=520,H=150,pl=34,pr=4,pt=8,pb=22, iw=W-pl-pr, ih=H-pt-pb, n=fc.months.length, bw=iw/n, barW=Math.max(6,bw-6);
+  const vals=fc.months.map(m=>({a:m.actualL, e:m.estL, m}));
+  const max=Math.max(1,...vals.map(v=>v.a+v.e));
+  const nice=(x)=>{ const p=Math.pow(10,Math.floor(Math.log10(x))); const f=x/p; return (f<=1?1:f<=2?2:f<=5?5:10)*p; };
+  const top=nice(max); const now=today();
+  let g="", bars="";
+  for(let i=0;i<=2;i++){ const y=pt+ih-ih*i/2; g+=`<line class="gridl" x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}"/><text class="axis" x="${pl-5}" y="${y+4}" text-anchor="end">${n0.format(top*i/2)}</text>`; }
+  vals.forEach((v,i)=>{
+    const x=pl+i*bw+(bw-barW)/2, ha=ih*v.a/top, he=ih*v.e/top, ya=pt+ih-ha, ye=ya-he;
+    if(ha>0) bars+=`<rect x="${x}" y="${ya}" width="${barW}" height="${ha}" rx="${Math.min(3,ha)}" fill="${accent}"/>`;
+    if(he>0) bars+=`<rect x="${x}" y="${ye}" width="${barW}" height="${Math.max(0,he-(ha>0?2:0))}" rx="${Math.min(3,he)}" fill="url(#hatch)" stroke="${accent}" stroke-width="1" stroke-opacity=".55"/>`;
+    const isNow = v.m.date.getFullYear()===now.getFullYear() && v.m.date.getMonth()===now.getMonth();
+    bars+=`<text class="axis" x="${pl+i*bw+bw/2}" y="${H-6}" text-anchor="middle"${isNow?' style="font-weight:700;fill:var(--text)"':""}>${MONTHS[v.m.date.getMonth()].slice(0,1)}</text>`;
+    bars+=`<rect x="${pl+i*bw}" y="${pt}" width="${bw}" height="${ih}" fill="transparent" data-i="${i}"/>`;
+  });
+  el.innerHTML=`<div class="legend" style="margin:12px 0 6px"><span><span class="fdot" style="background:${accent}"></span>verbraucht</span><span><span class="fdot" style="background:transparent;border:1.5px solid ${accent}"></span>Prognose</span><span style="margin-left:auto">Liter je Monat</span></div>
+    <div style="position:relative"><svg viewBox="0 0 ${W} ${H}"><defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="${accent}" fill-opacity=".12"/><line x1="0" y1="0" x2="0" y2="6" stroke="${accent}" stroke-opacity=".6" stroke-width="2"/></pattern></defs>${g}${bars}</svg><div class="tip"></div></div>`;
+  const tip=el.querySelector(".tip"), svg=el.querySelector("svg");
+  svg.querySelectorAll("rect[data-i]").forEach(rc=>{ const i=+rc.dataset.i; const v=vals[i];
+    const show=()=>{ const parts=[]; if(v.a>0.05) parts.push(`verbraucht ${n0.format(v.a)} l`); if(v.e>0.05) parts.push(`Prognose ${n0.format(v.e)} l${v.m.own?" (eigene Werte)":""}`);
+      tip.innerHTML=`<b>${MONTHS_L[v.m.date.getMonth()]} ${v.m.date.getFullYear()}</b><br>${parts.join("<br>")||"–"}`;
+      const k=svg.getBoundingClientRect().width/W; tip.style.left=((pl+(i+.5)*bw)*k)+"px"; tip.style.top=((pt+ih-ih*(v.a+v.e)/top-6)*k)+"px"; tip.classList.add("on"); };
+    rc.addEventListener("mouseenter",show); rc.addEventListener("touchstart",show,{passive:true}); rc.addEventListener("mouseleave",()=>tip.classList.remove("on")); });
 }
 
 /* ---------- Tankstand je Heizung (für Erinnerung & Widget) ---------- */
