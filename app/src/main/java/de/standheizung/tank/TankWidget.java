@@ -13,9 +13,7 @@ import android.widget.RemoteViews;
 
 import org.json.JSONObject;
 
-import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Locale;
 
 /** Widget mit geschätztem Tankstand und Reichweite. */
 public class TankWidget extends AppWidgetProvider {
@@ -46,13 +44,13 @@ public class TankWidget extends AppWidgetProvider {
         JSONObject notify = st.optJSONObject("notify");
         int warnDays = notify != null ? notify.optInt("days", 3) : 3;
 
-        String name = w != null ? w.optString("name", "Standheizung") : "Standheizung";
+        String name = w != null ? w.optString("name", Texts.get(c, "heater.default")) : Texts.get(c, "heater.default");
         v.setTextViewText(R.id.w_name, name);
 
         if (w == null || !w.optBoolean("hasData", false)) {
             v.setTextViewText(R.id.w_main, "–");
             v.setTextViewText(R.id.w_right, "");
-            v.setTextViewText(R.id.w_sub, w == null ? "App öffnen, um zu starten" : "Ab der 2. Vollbetankung");
+            v.setTextViewText(R.id.w_sub, Texts.get(c, w == null ? "w.start" : "w.needData"));
             v.setViewVisibility(R.id.w_bar, View.GONE);
             return v;
         }
@@ -69,13 +67,12 @@ public class TankWidget extends AppWidgetProvider {
             double daysLeft = left / rate;
             int pct = (int) Math.round(Math.max(0, Math.min(100, left / cap * 100)));
             boolean low = daysLeft <= Math.max(warnDays, 2) || pct < 20;
-            String until = new SimpleDateFormat("EEE, dd.MM.", Locale.GERMANY)
-                    .format(new Date(now + (long) (daysLeft * DAY)));
+            String until = Texts.shortDate(c).format(new Date(now + (long) (daysLeft * DAY)));
             long d = Math.round(daysLeft);
 
-            v.setTextViewText(R.id.w_main, "ca. " + Math.round(left) + " l");
-            v.setTextViewText(R.id.w_right, "von " + Math.round(cap) + " l");
-            v.setTextViewText(R.id.w_sub, (low ? "⚠ " : "") + "reicht noch ca. " + d + (d == 1 ? " Tag" : " Tage") + " · " + until);
+            v.setTextViewText(R.id.w_main, Texts.get(c, "w.left", Math.round(left)));
+            v.setTextViewText(R.id.w_right, Texts.get(c, "w.of", Math.round(cap)));
+            v.setTextViewText(R.id.w_sub, (low ? "⚠ " : "") + Texts.get(c, "w.lasts", Texts.days(c, d), until));
             v.setViewVisibility(R.id.w_bar, View.VISIBLE);
             v.setProgressBar(R.id.w_bar, 100, pct, false);
             if (Build.VERSION.SDK_INT >= 31) {
@@ -83,10 +80,10 @@ public class TankWidget extends AppWidgetProvider {
                 v.setColorStateList(R.id.w_bar, "setProgressTintList", ColorStateList.valueOf(col));
             }
         } else {
-            v.setTextViewText(R.id.w_main, String.format(Locale.GERMANY, "%.1f l/Tag", rate));
+            v.setTextViewText(R.id.w_main, Texts.get(c, "w.rate", rate));
             v.setTextViewText(R.id.w_right, "");
-            v.setTextViewText(R.id.w_sub, String.format(Locale.GERMANY, "%.2f € pro Tag", w.optDouble("costDay", 0))
-                    + (cap > 0 ? "" : " · Tankgröße fehlt"));
+            v.setTextViewText(R.id.w_sub, Texts.get(c, "w.costDay", w.optDouble("costDay", 0))
+                    + (cap > 0 ? "" : Texts.get(c, "w.noTank")));
             v.setViewVisibility(R.id.w_bar, View.GONE);
         }
         return v;

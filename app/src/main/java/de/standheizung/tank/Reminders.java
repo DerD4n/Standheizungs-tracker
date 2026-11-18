@@ -15,10 +15,8 @@ import android.os.Build;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 
 /** Plant und verschickt die Tankstand-Erinnerungen. Die Daten liefert die Web-Oberfläche. */
@@ -50,9 +48,9 @@ final class Reminders {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = c.getSystemService(NotificationManager.class);
             if (nm != null && nm.getNotificationChannel(CHANNEL) == null) {
-                NotificationChannel ch = new NotificationChannel(CHANNEL, "Tankstand-Erinnerung",
+                NotificationChannel ch = new NotificationChannel(CHANNEL, Texts.get(c, "channel.name"),
                         NotificationManager.IMPORTANCE_DEFAULT);
-                ch.setDescription("Hinweis, bevor der Tank der Standheizung leer ist");
+                ch.setDescription(Texts.get(c, "channel.desc"));
                 nm.createNotificationChannel(ch);
             }
         }
@@ -122,12 +120,12 @@ final class Reminders {
             if (emptyAt + 2 * DAY < now) continue;
 
             long days = Math.round((emptyAt - now) / (double) DAY);
-            String when = new SimpleDateFormat("EEE, dd.MM.", Locale.GERMANY).format(new Date(emptyAt));
+            String when = Texts.shortDate(c).format(new Date(emptyAt));
             String text = days <= 0
-                    ? "Laut Schätzung ist der Tank jetzt leer. Zeit zum Tanken!"
-                    : "Laut Schätzung reicht der Tank noch ca. " + days + (days == 1 ? " Tag" : " Tage")
-                      + " (bis " + when + "). Zeit zum Tanken!";
-            post(c, key.hashCode(), it.optString("heater", "Standheizung") + ": Tank bald leer", text);
+                    ? Texts.get(c, "n.empty")
+                    : Texts.get(c, "n.body", Texts.days(c, days), when);
+            String heater = it.optString("heater", Texts.get(c, "heater.default"));
+            post(c, key.hashCode(), Texts.get(c, "n.title", heater), text);
             done.add(key);
         }
         // nur Schlüssel behalten, die noch aktuell sind

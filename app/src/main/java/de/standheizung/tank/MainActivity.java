@@ -235,7 +235,7 @@ public class MainActivity extends Activity {
             if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
                 runOnUiThread(() -> {
                     Toast.makeText(MainActivity.this,
-                            "Bitte „Apps aus dieser Quelle zulassen“ einschalten und dann erneut tippen",
+                            Texts.get(MainActivity.this, "t.allowInstall"),
                             Toast.LENGTH_LONG).show();
                     try {
                         startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -258,7 +258,7 @@ public class MainActivity extends Activity {
                         try {
                             startActivity(i);
                         } catch (ActivityNotFoundException e) {
-                            Toast.makeText(MainActivity.this, "Installation konnte nicht gestartet werden", Toast.LENGTH_LONG).show();
+                            Toast.makeText(MainActivity.this, Texts.get(MainActivity.this, "t.installFail"), Toast.LENGTH_LONG).show();
                         }
                     });
                 } catch (Exception e) {
@@ -305,7 +305,7 @@ public class MainActivity extends Activity {
             send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(Intent.createChooser(send, title));
         } catch (Exception e) {
-            Toast.makeText(this, "Export fehlgeschlagen", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, Texts.get(this, "t.exportFail"), Toast.LENGTH_SHORT).show();
         }
     }
 }
