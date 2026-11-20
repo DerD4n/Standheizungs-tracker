@@ -31,6 +31,8 @@ final class Texts {
         put("w.needData", "Ab der 2. Vollbetankung", "From the 2nd full fill-up");
         put("w.left", "ca. %d l", "approx. %d L");
         put("w.of", "von %d l", "of %d L");
+        put("w.leftShort", "≈ %d l", "≈ %d L");
+        put("w.daysLeft", "noch %s", "%s left");
         put("w.lasts", "reicht noch ca. %s · %s", "lasts approx. %s · %s");
         put("w.rate", "%.1f l/Tag", "%.1f L/day");
         put("w.costDay", "%.2f € pro Tag", "€%.2f per day");
