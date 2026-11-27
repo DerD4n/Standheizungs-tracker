@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity {
 
     private static final int REQ_NOTIF = 42;
+    private static final int REQ_LOC = 43;
     private WebView webView;
 
     @Override
@@ -126,6 +127,13 @@ public class MainActivity extends Activity {
         });
     }
 
+    private String locationStatus() {
+        if (!Locator.hasPermission(this)) {
+            return getSharedPreferences("app_state", MODE_PRIVATE).getBoolean("askedLoc", false) ? "denied" : "default";
+        }
+        return Locator.enabled(this) ? "granted" : "off";
+    }
+
     private void permissionResult(String status) {
         if (webView != null) {
             webView.evaluateJavascript("window.__onNotifPerm && window.__onNotifPerm('" + status + "')", null);
@@ -135,6 +143,11 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_LOC) {
+            getSharedPreferences("app_state", MODE_PRIVATE).edit().putBoolean("askedLoc", true).apply();
+            js("window.__onLocPerm && window.__onLocPerm('" + locationStatus() + "')");
+            return;
+        }
         if (requestCode == REQ_NOTIF) {
             getSharedPreferences("app_state", MODE_PRIVATE).edit().putBoolean("asked", true).apply();
             permissionResult(notificationStatus());
@@ -212,6 +225,54 @@ public class MainActivity extends Activity {
                     startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                             Uri.parse("package:" + getPackageName())));
                 }
+            });
+        }
+
+        /** "granted", "default" (noch nie gefragt), "denied" oder "off" (Standort am Handy aus). */
+        @JavascriptInterface
+        public String locationStatus() {
+            return MainActivity.this.locationStatus();
+        }
+
+        @JavascriptInterface
+        public void requestLocationPermission() {
+            runOnUiThread(() -> {
+                if (Locator.hasPermission(MainActivity.this)) {
+                    js("window.__onLocPerm && window.__onLocPerm('" + MainActivity.this.locationStatus() + "')");
+                } else {
+                    requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOC);
+                }
+            });
+        }
+
+        /** Ungefähre Position an window.__onLocation({lat, lon, acc, time}) bzw. null. */
+        @JavascriptInterface
+        public void requestLocation() {
+            runOnUiThread(() -> Locator.get(MainActivity.this, l -> {
+                if (l == null) { js("window.__onLocation && window.__onLocation(null)"); return; }
+                String json = String.format(java.util.Locale.ROOT, "{\"lat\":%.3f,\"lon\":%.3f,\"acc\":%.0f,\"time\":%d}",
+                        l.getLatitude(), l.getLongitude(), l.getAccuracy(), l.getTime());
+                js("window.__onLocation && window.__onLocation(" + json + ")");
+            }));
+        }
+
+        /** App-Infos öffnen (dort Berechtigungen → Standort erlauben). */
+        @JavascriptInterface
+        public void openAppSettings() {
+            runOnUiThread(() -> {
+                try {
+                    startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:" + getPackageName())));
+                } catch (ActivityNotFoundException ignored) { }
+            });
+        }
+
+        @JavascriptInterface
+        public void openLocationSettings() {
+            runOnUiThread(() -> {
+                try {
+                    startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                } catch (ActivityNotFoundException ignored) { }
             });
         }
 

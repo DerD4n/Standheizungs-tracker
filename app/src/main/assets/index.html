@@ -181,6 +181,25 @@ table.cmp tr:last-child td{border-bottom:0}
 .nwarn{margin-top:12px;border-radius:12px;padding:10px 12px;background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--text);font-size:13px}
 .nwarn button{margin-top:8px}
 .linkbtn{border:0;background:none;color:var(--accent-ink);font-weight:600;padding:0;cursor:pointer;font-size:13px}
+/* Wetter */
+.wx .whead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.wx .wsum{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.wx .wsum small{font-size:14px;font-weight:500;color:var(--text-2);margin-left:4px}
+.wx .wplace{font-size:12px;color:var(--text-2);text-align:right}
+.wx .wlearn{font-size:12px;color:var(--text-2);margin-top:8px}
+.wx .wattr{font-size:11px;color:var(--muted);margin-top:6px}
+.wx .wattr a{color:inherit}
+.pausebtn{margin-top:14px;width:100%;border:1px dashed var(--line);background:var(--surface-2);border-radius:12px;padding:10px;font-weight:600;cursor:pointer;color:var(--text-2)}
+.pausebtn.on{border-style:solid;border-color:color-mix(in srgb,var(--blue) 50%,transparent);background:color-mix(in srgb,var(--blue) 12%,transparent);color:var(--text)}
+.pausetag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--blue) 15%,transparent);color:var(--text);margin-left:8px;vertical-align:3px}
+.locseg{display:flex;gap:6px;flex-wrap:wrap}
+.locres{margin-top:8px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.locres button{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:var(--surface);padding:10px 12px;cursor:pointer}
+.locres button:first-child{border-top:0}
+.locres small{color:var(--text-2);display:block;font-size:12px}
+.optrow{display:flex;align-items:center;gap:12px}
+.optrow .ot{font-weight:600}
+.optrow .os{font-size:12px;color:var(--text-2)}
 /* Update */
 .upd{display:flex;gap:12px;align-items:center;background:var(--text);color:var(--surface);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px}
 .upd .ui{flex:0 0 36px;height:36px;border-radius:10px;background:var(--accent);display:grid;place-items:center;font-size:18px;color:#fff}
@@ -214,6 +233,7 @@ table.cmp tr:last-child td{border-bottom:0}
   <!-- ÜBERSICHT -->
   <section id="v-home">
     <div class="card hero" id="hero"></div>
+    <div class="card wx hidden" id="wxCard"></div>
     <div class="card">
       <h2 id="seasonLabel" data-i18n="home.season"></h2>
       <div class="kpis" id="kpiSeason"></div>
@@ -280,6 +300,15 @@ table.cmp tr:last-child td{border-bottom:0}
         <div class="field"><label data-i18n="set.tank"></label><input id="sTank" type="number" step="0.5" min="0" inputmode="decimal" data-i18n-ph="optional"></div>
       </div>
       <div class="hint" data-i18n="set.tankHint"></div>
+      <div id="locWrap" class="hidden" style="margin-top:14px">
+        <div class="nlabel" style="margin-top:0" data-i18n="loc.title"></div>
+        <div class="locseg pills"><button class="pill" data-lm="phone" data-i18n="loc.phone"></button><button class="pill" data-lm="fixed" data-i18n="loc.fixed"></button></div>
+        <div id="locFixed" class="hidden" style="margin-top:10px">
+          <div class="row2" style="grid-template-columns:1fr auto"><input id="locQ" class="seasonsel" style="margin:0;font-weight:400" data-i18n-ph="loc.search.ph"><button class="btn" id="locGo" data-i18n="loc.search"></button></div>
+          <div class="locres hidden" id="locRes"></div>
+        </div>
+        <div class="hint" id="locInfo" style="margin-top:6px"></div>
+      </div>
       <div class="actions" style="margin-top:14px"><button class="btn danger hidden" id="hDel" data-i18n="btn.delete"></button><button class="btn primary" id="sSave" data-i18n="btn.save"></button></div>
       <div class="hint" style="margin-top:10px"><span data-i18n="set.addMore"></span> <button class="linkbtn" id="hAdd2" data-i18n="heater.add"></button></div>
     </div>
@@ -310,6 +339,23 @@ table.cmp tr:last-child td{border-bottom:0}
       <div class="hint hidden" id="nWeb" style="margin-top:12px" data-i18n="n.web"></div>
     </div>
 
+    <div class="card" id="wxSetCard">
+      <div class="nrow">
+        <div class="nbell" id="wxIcon">🌡️</div>
+        <div><div class="nt" data-i18n="wx.title"></div><div class="ns" id="wxSub"></div></div>
+        <label class="switch"><input type="checkbox" id="wxOn" data-i18n-aria="wx.title"><span></span></label>
+      </div>
+      <div class="nwarn hidden" id="wxPerm"><span id="wxPermTxt"></span><br><button class="btn" id="wxPermBtn"></button></div>
+      <div class="hint hidden" id="wxWeb" style="margin-top:12px" data-i18n="wx.web"></div>
+      <div class="hint" id="wxInfo" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="opt.title"></h2>
+      <div class="optrow"><div style="flex:1"><div class="ot" data-i18n="opt.pause"></div><div class="os" data-i18n="opt.pauseHint"></div></div>
+        <label class="switch sm"><input type="checkbox" id="pauseOpt" data-i18n-aria="opt.pause"><span></span></label></div>
+    </div>
+
     <div class="card">
       <h2 data-i18n="lang.title"></h2>
       <div class="pills" id="langPills">
@@ -337,7 +383,8 @@ table.cmp tr:last-child td{border-bottom:0}
       <h2 data-i18n="calc.title"></h2>
       <p style="margin:0 0 8px;font-size:13px;color:var(--text-2)" data-i18n-html="calc.p1"></p>
       <p style="margin:0 0 8px;font-size:13px;color:var(--text-2)" data-i18n-html="calc.p2"></p>
-      <p style="margin:0;font-size:13px;color:var(--text-2)" data-i18n-html="calc.p3"></p>
+      <p style="margin:0 0 8px;font-size:13px;color:var(--text-2)" data-i18n-html="calc.p3"></p>
+      <p style="margin:0;font-size:13px;color:var(--text-2)" data-i18n-html="calc.p4"></p>
     </div>
     <div class="card">
       <h2 data-i18n="bk.title"></h2>
@@ -402,18 +449,22 @@ table.cmp tr:last-child td{border-bottom:0}
 
 <script src="i18n.js"></script>
 <script src="calc.js"></script>
+<script src="weather.js"></script>
 <script>
 (() => {
 "use strict";
 const $ = (id) => document.getElementById(id);
-const DEFAULT_SETTINGS = { yearStart:8, notify:{on:false, days:3, hour:18}, widget:null, lang:"auto" };
+const DEFAULT_SETTINGS = { yearStart:8, notify:{on:false, days:3, hour:18}, widget:null, lang:"auto", weather:{on:false}, pauseFeature:false };
 const t=I18N.t, tn=I18N.tn;
-const newHeater=(o={})=>({ id:o.id||("h"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)), name:String(o.name||"").slice(0,60), model:String(o.model||"").slice(0,80), fuel:o.fuel||"Diesel", tank:o.tank??null, notify:o.notify!==false });
+const cleanLoc=(l)=>{ l=l||{}; const fx=l.mode==="fixed"&&isFinite(l.lat)&&isFinite(l.lon); return fx? {mode:"fixed",lat:+(+l.lat).toFixed(2),lon:+(+l.lon).toFixed(2),name:String(l.name||"").slice(0,80)} : {mode:l.mode==="fixed"?"fixed":"phone"}; };
+const cleanPauses=(p)=>Array.isArray(p)? p.filter(x=>x&&Number.isInteger(x.from)).map(x=>({from:x.from,to:Number.isInteger(x.to)?x.to:null})).slice(-200) : [];
+const newHeater=(o={})=>({ id:o.id||("h"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)), name:String(o.name||"").slice(0,60), model:String(o.model||"").slice(0,80), fuel:o.fuel||"Diesel", tank:o.tank??null, notify:o.notify!==false,
+  loc:cleanLoc(o.loc), wxSince:Number.isInteger(o.wxSince)?o.wxSince:null, pauses:cleanPauses(o.pauses) });
 const FUELS=[["Diesel","#2a78d6","#3987e5"],["Heizöl","#eb6834","#d95926"],["HVO100","#1baf7a","#199e70"],["Petroleum","#eda100","#c98500"],["Benzin","#e87ba4","#d55181"],["Sonstiges","#008300","#0ca30c"]];
 const FUEL_NAMES=FUELS.map(f=>f[0]);
 const darkMQ=window.matchMedia?window.matchMedia("(prefers-color-scheme: dark)"):null;
 const fuelColor=(name)=>{ const f=FUELS.find(x=>x[0]===name)||FUELS[FUELS.length-1]; return darkMQ&&darkMQ.matches?f[2]:f[1]; };
-const state = { settings:structuredClone(DEFAULT_SETTINGS), heaters:[newHeater({id:"h1"})], active:"h1", fills:[], view:"home", period:"season", seasonY:null };
+const state = { settings:structuredClone(DEFAULT_SETTINGS), heaters:[newHeater({id:"h1"})], active:"h1", fills:[], locs:[], view:"home", period:"season", seasonY:null };
 const SM=()=>{ const m=+state.settings.yearStart; return m>=0&&m<12?m:8; };
 const hjOf=(d)=> d.getMonth()>=SM()? d.getFullYear() : d.getFullYear()-1;
 const curSeason=()=>hjOf(new Date());
@@ -507,9 +558,11 @@ function adoptProfile(d){
   state.settings={ yearStart: Number.isInteger(s.yearStart)?s.yearStart:8,
     notify:{ on:!!n.on, days:[1,2,3,5,7].includes(n.days)?n.days:3, hour:[8,12,18,20].includes(n.hour)?n.hour:18 },
     widget: heaters.some(h=>h.id===s.widget)? s.widget : null,
-    lang: ["de","en"].includes(s.lang)? s.lang : "auto" };
+    lang: ["de","en"].includes(s.lang)? s.lang : "auto",
+    weather:{ on: !!(s.weather&&s.weather.on) }, pauseFeature: !!s.pauseFeature };
+  state.locs = Array.isArray(d.locs)? d.locs.filter(x=>x&&Number.isInteger(x.d)&&isFinite(x.lat)&&isFinite(x.lon)).slice(-800) : [];
 }
-const profileBody=()=>({settings:structuredClone(state.settings), heaters:state.heaters.map(h=>({...h})), active:state.active});
+const profileBody=()=>({settings:structuredClone(state.settings), heaters:state.heaters.map(h=>structuredClone(h)), active:state.active, locs:state.locs.slice()});
 let backend="local", profileRef=null, fillsCol=null;
 function lsRead(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||null; }catch(e){ return null; } }
 function lsWrite(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({...profileBody(),fills:state.fills})); }catch(e){} }
@@ -581,15 +634,18 @@ function heroHTML(){
     </div>`;
   const last=f[f.length-1], cap=num(H().tank);
   if(cap && last.full){
-    const since=Math.max(0,(today()-parseD(last.date))/DAY);
-    const used=cur.rate*since, left=Math.max(0,cap-used), pct=Math.max(0,Math.min(100,left/cap*100));
-    const rest=cur.rate? left/cur.rate:0; const empty=new Date(today().getTime()+rest*DAY);
+    const ts=tankState(H()); const left=ts.left, pct=ts.pct, rest=ts.daysLeft;
+    const empty=new Date(today().getTime()+rest*DAY);
     const low = rest <= Math.max(state.settings.notify.days,2);
     html+=`<div class="tank"><div class="t"><span>${t("tank.est")}${low?` · <b style="color:var(--danger)">${t("tank.soon")}</b>`:""}</span><span>${t("tank.of",{left:`${n0.format(left)} ${UL()}`,cap:`${n_(cap)} ${UL()}`})}</span></div>
       <div class="bar"><i style="width:${pct}%" class="${(pct<20||low)?"low":""}"></i></div>
       <div class="t"><span>${t("tank.lasts",{days:daysTxt(Math.round(rest))})}</span><span>${t("tank.emptyOn",{date:fmtDate(toInput(empty))})}</span></div></div>`;
   } else if(cap && !last.full){
     html+=`<div class="tank"><div class="t"><span>${t("tank.unknown")}</span></div></div>`;
+  }
+  if(state.settings.pauseFeature){
+    const p=pausedNow(H());
+    html+=`<button class="pausebtn${p?" on":""}" id="pauseBtn">${p? t("pause.resume",{date:dmFmt.format(Calc.dateOf(p.from))}) : t("pause.start")}</button>`;
   }
   return html;
 }
@@ -615,7 +671,9 @@ function render(){
   const ivs=intervals(); const ivByEnd=new Map(ivs.map(iv=>[iv.end.id,iv]));
   const desc=sortedAsc().reverse();
 
+  wxMemo.clear();
   $("hero").innerHTML=heroHTML();
+  const pb=$("pauseBtn"); if(pb) pb.onclick=togglePause;
   if(state.seasonY==null) state.seasonY=curSeason();
   const sr=periodRange("season",curSeason()); $("seasonLabel").textContent=sr[2];
   const ss=periodStats(sr);
@@ -624,7 +682,8 @@ function render(){
     kpi(t("kpi.cost"), n0.format(ss.cost), "€", ss.days? t("kpi.costUntil",{date:lastFullLabel(),v:eur(ss.costDay)}):"–") +
     kpi(t("kpi.bought"), n0.format(ss.boughtL), UL(), `${tn("fills",ss.fills,n_(ss.fills))} · ${eur(ss.bought)}`) +
     kpi(t("kpi.avgPrice"), ss.avgPrice? n3.format(ss.avgPrice):"–", ss.avgPrice?t("u.eurl"):"", t("kpi.allFills"));
-  $("forecast").innerHTML=forecastHTML(); renderForecastChart();
+  wxMemo.clear();
+  $("forecast").innerHTML=forecastHTML(); renderForecastChart(); renderWx();
   $("recent").innerHTML = desc.length? desc.slice(0,4).map(f=>fillHTML(f,ivByEnd)).join("") : `<div class="empty">${t("empty.recent")}</div>`;
 
   if(!desc.length) $("fullList").innerHTML=`<div class="empty">${t("empty.list")}</div>`;
@@ -659,7 +718,7 @@ function render(){
   $("sYearStart").value=String(SM());
   $("sYearHint").textContent = SM()===0 ? t("hj.calHint") : t("hj.hint",{span:hjSpan(),name:seasonName(curSeason())});
   document.querySelectorAll("#langPills .pill").forEach(b=>b.classList.toggle("on",b.dataset.l===(state.settings.lang||"auto")));
-  renderNotify(); renderWidgetCard(); syncNative(); renderUpdate();
+  renderNotify(); renderWidgetCard(); renderWxSettings(); syncNative(); renderUpdate();
 }
 
 /* ---------- Prognose ----------
@@ -668,14 +727,21 @@ function render(){
 function lastPaidPrice(h){ const p=sortedAsc(h).filter(f=>f.liters&&f.total); return p.length? p[p.length-1].total/p[p.length-1].liters : null; }
 function forecast(){
   const ivs=intervals(); if(!ivs.length) return null;
-  return Calc.forecast(ivs,{yearStart:SM(), today:today(), price:lastPaidPrice()});
+  const h=H(), T=Calc.dayIdx(today()), m=WX_ON()? wxModel(h) : null;
+  const dayRate=(d)=>{
+    if(Calc.isPaused(h.pauses,d) && (pausedNow(h) || d<T)) return {rate:0,u:0};
+    if(!m) return null;
+    const u=wxUse(h,d); if(u==null) return null;
+    return {rate:u, u: d<=T+16 ? (m.prior?.3:.12) : (m.prior?.4:.25)};
+  };
+  return Calc.forecast(ivs,{yearStart:SM(), today:today(), price:lastPaidPrice(), dayRate});
 }
 const roundEur=(v)=>{ const r=v>=1000?50:v>=200?10:5; return eur0(Math.round(v/r)*r); };
 function forecastHTML(){
   const fc=forecast(); if(!fc) return "";
   const pct=fc.high? Math.min(100,fc.spent/fc.high*100):0, pctMid=fc.high? Math.min(100,fc.total/fc.high*100):0;
   const end=new Date(fc.to.getTime()-DAY);
-  const q = fc.usedOwn ? t("fc.own") : fc.coverage>=.6 ? t("fc.adapted") : t("fc.firstYear");
+  const q = fc.usedWeather ? t("fc.weather") : fc.usedOwn ? t("fc.own") : fc.coverage>=.6 ? t("fc.adapted") : t("fc.firstYear");
   const pre = fc.preTracking ? t("fc.pre") : "";
   return `<div class="fc">
     <div class="top"><span class="lbl">${t("fc.title",{name:seasonName(fc.y)})}</span><span class="val">${t("fc.approx",{v:roundEur(fc.total)})}</span></div>
@@ -715,6 +781,23 @@ function renderForecastChart(){
 }
 
 /* ---------- Tankstand je Heizung (für Erinnerung & Widget) ---------- */
+/* Tankinhalt Tag für Tag ab der letzten Vollbetankung: Wettermodell, sonst aktueller Verbrauch; Pausen = 0 */
+function tankState(h){
+  const ivs=intervals(h), f=sortedAsc(h), cap=num(h.tank);
+  if(!ivs.length||!cap||!f.length||!f[f.length-1].full) return null;
+  const rate=ivs[ivs.length-1].rate, fillD=Calc.dayIdx(parseD(f[f.length-1].date)), T=Calc.dayIdx(today());
+  let viaWx=false;
+  const sim=Calc.simulateTank(cap, fillD, (d)=>{
+    if(Calc.isPaused(h.pauses,d)) return 0;
+    const u=wxUse(h,d); if(u!=null){ viaWx=true; return u; }
+    return rate;
+  }, 500);
+  const i=Math.min(Math.max(0,T-fillD), sim.left.length-1);
+  const left=Math.max(0, T-fillD>=sim.left.length ? 0 : sim.left[i]);
+  const emptyD=sim.emptyD!=null? sim.emptyD : T+500;
+  return { left, pct:Math.max(0,Math.min(100,left/cap*100)), daysLeft:Math.max(0,emptyD-T), emptyD, viaWx, fillD,
+    curve:{ t0:Calc.dateOf(fillD).getTime(), left:sim.left.slice(0,240).map(x=>+x.toFixed(2)), emptyAt:Math.round(Calc.dateOf(Math.floor(emptyD)).getTime()+(emptyD%1)*DAY) } };
+}
 function tankInfo(h){
   const ivs=intervals(h), f=sortedAsc(h); const cap=num(h.tank);
   const out={id:h.id,name:h.name||t("app.defaultName"),cap:cap||0,hasData:ivs.length>0};
@@ -722,7 +805,8 @@ function tankInfo(h){
   const cur=ivs[ivs.length-1]; out.rate=cur.rate; out.costDay=cur.costRate;
   const last=f[f.length-1];
   out.lastFull=!!last.full; out.fillTime=parseD(last.date).getTime(); out.lastId=last.id;
-  if(cap && last.full && cur.rate>0){ out.emptyAt=out.fillTime + cap/cur.rate*DAY; }
+  const ts=tankState(h);
+  if(ts){ out.emptyAt=ts.curve.emptyAt; out.curve=ts.curve; }
   return out;
 }
 function reminderItems(){
@@ -731,7 +815,7 @@ function reminderItems(){
     if(!h.notify) continue; const t=tankInfo(h); if(!t.emptyAt) continue;
     const wd=new Date(t.emptyAt - n.days*DAY);
     const warnAt=new Date(wd.getFullYear(),wd.getMonth(),wd.getDate(),n.hour).getTime();
-    items.push({key:`${h.id}|${t.lastId}|${n.days}`, heater:t.name, warnAt, emptyAt:Math.round(t.emptyAt)});
+    items.push({key:`${h.id}|${t.lastId}|${n.days}|${Math.round(t.emptyAt/DAY)}`, heater:t.name, warnAt, emptyAt:Math.round(t.emptyAt)});
   }
   return items;
 }
@@ -779,6 +863,174 @@ function renderWidgetCard(){
   const multi=state.heaters.length>1; $("wSelWrap").classList.toggle("hidden",!multi);
   if(multi){ const cur=state.heaters.some(h=>h.id===state.settings.widget)? state.settings.widget : ""; 
     $("wSel").innerHTML=`<option value="">${t("widget.current")}</option>`+state.heaters.map(h=>`<option value="${esc(h.id)}"${h.id===cur?" selected":""}>${esc(h.name||t("noName"))}</option>`).join(""); }
+}
+
+/* ---------- Wetter & Standort ---------- */
+const WX_ON=()=> !!(APP && APP.requestLocation && state.settings.weather.on);
+const pausedNow=(h)=>{ const T=Calc.dayIdx(today()); return (h.pauses||[]).find(p=>p.to==null && p.from<=T) || null; };
+function togglePause(){
+  const h=H(), T=Calc.dayIdx(today()), p=pausedNow(h);
+  if(p){ if(p.from>=T) h.pauses=h.pauses.filter(x=>x!==p); else p.to=T; toast(t("pause.resumed")); }
+  else { h.pauses=[...(h.pauses||[]), {from:T,to:null}]; toast(t("pause.paused")); }
+  lastNative=""; saveSettings();
+}
+function locFor(h,d){
+  if(h.loc && h.loc.mode==="fixed") return isFinite(h.loc.lat)? h.loc : null;
+  const L=state.locs; if(!L.length) return null;
+  let best=null; for(const x of L){ if(x.d<=d) best=x; else break; }
+  return best||L[0];
+}
+const wxRec=(h,d)=>{ const l=locFor(h,d); return l? Weather.dayRec(Weather.cellOf(l.lat,l.lon), d) : null; };
+const wxMemo=new Map();
+/* Gelerntes Modell (Liter = a·Tage + b·Heizgrade). Vor dem ersten gelernten Abschnitt: Startschätzung
+   aus dem letzten Verbrauch und dem Wetter der letzten zwei Wochen am aktuellen Ort. */
+function wxModel(h){
+  if(wxMemo.has(h.id)) return wxMemo.get(h.id);
+  let m=null;
+  if(WX_ON()){
+    const ivs=intervals(h);
+    const fit=Calc.fitWeather(Calc.weatherSamples(ivs,{dayRec:d=>wxRec(h,d), pauses:h.pauses, since:h.wxSince}));
+    if(fit) m={...fit, prior:false};
+    else if(ivs.length){
+      const T=Calc.dayIdx(today()); let H=0,n=0;
+      for(let d=T-14; d<T; d++){ const r=wxRec(h,d); if(r){ H+=Calc.hddAt(r,Calc.DEFAULT_BASE); n++; } }
+      const rate=ivs[ivs.length-1].rate;
+      if(n>=5 && H/n>0.5) m={a:0,b:rate/(H/n),base:Calc.DEFAULT_BASE,n:0,prior:true};
+    }
+  }
+  wxMemo.set(h.id,m); return m;
+}
+function wxUse(h,d){
+  if(!WX_ON()) return null;
+  const m=wxModel(h); if(!m) return null;
+  return Calc.usageOf(m, wxRec(h,d), false);
+}
+let wxBusy=false, wxErr=false, locWait=false;
+async function refreshWeather(force){
+  if(!WX_ON()||wxBusy) return;
+  wxBusy=true; renderWx();
+  try{
+    const T=Calc.dayIdx(today()), cur=new Map(), past=new Map();
+    for(const h of state.heaters){
+      const since=h.wxSince??T;
+      const l=locFor(h,T); if(l) cur.set(Weather.cellOf(l.lat,l.lon), Math.min(cur.get(Weather.cellOf(l.lat,l.lon))??T, since));
+      if(h.loc.mode!=="fixed") for(const x of state.locs) if(x.d>=since-1){ const k=Weather.cellOf(x.lat,x.lon); past.set(k, Math.min(past.get(k)??T, Math.max(since,x.d))); }
+    }
+    for(const [k,since] of cur){ await Weather.ensureRecent(k, Math.min(since, T-14), force); await Weather.ensureClimate(k); }
+    for(const [k,since] of past) if(!cur.has(k)) await Weather.ensureRecent(k, since, false);
+    wxErr=false;
+  }catch(e){ wxErr=true; }
+  wxBusy=false; wxMemo.clear(); lastNative=""; render();
+}
+const wantPhoneLoc=()=> WX_ON() && state.heaters.some(h=>h.loc.mode!=="fixed");
+function locStatus(){ try{ return APP.locationStatus(); }catch(e){ return "denied"; } }
+function updateLocation(){
+  if(wantPhoneLoc() && locStatus()==="granted"){ locWait=true; try{ APP.requestLocation(); }catch(e){ locWait=false; refreshWeather(); } }
+  else refreshWeather();
+}
+window.__onLocation=(l)=>{
+  locWait=false;
+  if(l && isFinite(l.lat) && isFinite(l.lon)){
+    const d=Calc.dayIdx(today()), e={d, lat:+l.lat.toFixed(2), lon:+l.lon.toFixed(2)};
+    const last=state.locs[state.locs.length-1];
+    if(!last || last.d!==d || Math.abs(last.lat-e.lat)>.01 || Math.abs(last.lon-e.lon)>.01){
+      if(last && last.d===d) state.locs[state.locs.length-1]=e; else state.locs.push(e);
+      state.locs=state.locs.slice(-800); saveSettings();
+    }
+  }
+  refreshWeather();
+};
+window.__onLocPerm=(st)=>{ render(); if(st==="granted") updateLocation(); };
+
+function placeName(h){
+  if(h.loc.mode==="fixed") return h.loc.name||t("loc.fixedPlace");
+  const l=locFor(h,Calc.dayIdx(today())); return l? t("loc.phoneHere") : "";
+}
+function renderWx(){
+  const card=$("wxCard"); if(!card) return;
+  const h=H(); const on=WX_ON();
+  card.classList.toggle("hidden", !on);
+  if(!on) return;
+  const T=Calc.dayIdx(today()), m=wxModel(h), loc=locFor(h,T);
+  const attr=`<div class="wattr">${t("wx.attr")} <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0)</div>`;
+  if(!loc){
+    const st=h.loc.mode==="fixed"? "" : locStatus();
+    card.innerHTML=`<h2>${t("wx.next")}</h2><div class="nx" style="font-size:14px;color:var(--text-2)">${h.loc.mode==="fixed"? t("wx.noFixed") : locWait? t("wx.locating") : st==="granted"? t("wx.noLoc") : t("wx.needPerm")}</div>`;
+    return;
+  }
+  const days=[]; let L7=0, L16=0, missing=0;
+  const price=lastPaidPrice()||0;
+  for(let d=T; d<T+16; d++){
+    const rec=wxRec(h,d), p=Calc.isPaused(h.pauses,d) && !!pausedNow(h);
+    const u=p? 0 : (m&&rec? Calc.usageOf(m,rec,false) : null);
+    if(u==null) missing++;
+    days.push({d,rec,u,p}); if(u!=null){ L16+=u; if(d<T+7) L7+=u; }
+  }
+  if(!m || missing>8){
+    card.innerHTML=`<h2>${t("wx.next")}</h2><div style="font-size:14px;color:var(--text-2)">${wxBusy? t("wx.loading") : wxErr? t("wx.error") : !intervals(h).length? t("n.whyData") : t("wx.loading")}</div>${attr}`;
+    return;
+  }
+  const learn = m.prior ? t("wx.prior") : t("wx.learned",{b:n2.format(m.b), a:m.a>0.05? t("wx.base",{a:`${n2.format(m.a)} ${UL()}`}) : "", n:tn("fills",m.n,n_(m.n))});
+  const ph=pausedNow(h);
+  card.innerHTML=`<h2>${t("wx.next")}</h2>
+    <div class="whead"><div class="wsum">≈ ${n0.format(L7)}<small>${UL()} · ${eur0(L7*price)}</small><div style="font-size:12px;font-weight:500;color:var(--text-2);margin-top:2px">${t("wx.in7",{l:`${n0.format(L16)} ${UL()}`})}</div></div>
+      <div class="wplace">📍 ${esc(placeName(h))}${wxBusy?`<br>${t("wx.updating")}`:""}</div></div>
+    ${ph? `<div class="hint" style="margin-top:8px">⏸ ${t("wx.pausedNote")}</div>`:""}
+    <div class="chart" id="wxChart" style="margin-top:10px"></div>
+    <div class="wlearn">${learn}</div>${attr}`;
+  renderWxChart(days);
+}
+function renderWxChart(days){
+  const el=$("wxChart"); if(!el) return;
+  const css=getComputedStyle(document.documentElement), accent=css.getPropertyValue("--accent").trim(), blue=css.getPropertyValue("--blue").trim();
+  const W=520,H=150,pl=30,pr=4,pt=8,pb=34, iw=W-pl-pr, ih=H-pt-pb, n=days.length, bw=iw/n, barW=Math.max(6,bw-6);
+  const max=Math.max(1,...days.map(x=>x.u||0));
+  const nice=(x)=>{ const p=Math.pow(10,Math.floor(Math.log10(x))); const f=x/p; return (f<=1?1:f<=2?2:f<=5?5:10)*p; };
+  const top=nice(max);
+  const wd=new Intl.DateTimeFormat(I18N.locale(),{weekday:"narrow"});
+  let g="", bars="";
+  for(let i=0;i<=2;i++){ const y=pt+ih-ih*i/2; g+=`<line class="gridl" x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}"/><text class="axis" x="${pl-5}" y="${y+4}" text-anchor="end">${n1.format(top*i/2).replace(/[.,]0$/,"")}</text>`; }
+  days.forEach((x,i)=>{
+    const cx=pl+i*bw+bw/2, h=x.u? ih*x.u/top:0, xx=pl+i*bw+(bw-barW)/2, y=pt+ih-h;
+    if(h>0) bars+=`<rect x="${xx}" y="${y}" width="${barW}" height="${h}" rx="${Math.min(3,h)}" fill="${accent}" fill-opacity="${i<7?1:.45}"/>`;
+    const dt=Calc.dateOf(x.d);
+    bars+=`<text class="axis" x="${cx}" y="${H-20}" text-anchor="middle"${i===0?' style="font-weight:700;fill:var(--text)"':""}>${wd.format(dt)}</text>`;
+    if(x.rec&&x.rec.tmin!=null) bars+=`<text class="axis" x="${cx}" y="${H-6}" text-anchor="middle" style="fill:${x.rec.tmin<0?blue:"var(--muted)"}">${Math.round(x.rec.tmin)}°</text>`;
+    bars+=`<rect x="${pl+i*bw}" y="${pt}" width="${bw}" height="${ih+pb}" fill="transparent" data-i="${i}"/>`;
+  });
+  el.innerHTML=`<div style="position:relative"><svg viewBox="0 0 ${W} ${H}">${g}${bars}</svg><div class="tip"></div></div>`;
+  const tip=el.querySelector(".tip"), svg=el.querySelector("svg");
+  const df=new Intl.DateTimeFormat(I18N.locale(),{weekday:"short",day:"numeric",month:"short"});
+  svg.querySelectorAll("rect[data-i]").forEach(rc=>{ const i=+rc.dataset.i, x=days[i];
+    const show=()=>{ const temp=x.rec&&x.rec.tmin!=null? `${Math.round(x.rec.tmin)}…${Math.round(x.rec.tmax)} °C` : "";
+      tip.innerHTML=`<b>${df.format(Calc.dateOf(x.d))}</b><br>${x.p? t("pause.short") : x.u!=null? `≈ ${n1.format(x.u)} ${UL()}` : "–"}${temp?`<br>${temp}`:""}`;
+      const k=svg.getBoundingClientRect().width/W; tip.style.left=((pl+(i+.5)*bw)*k)+"px"; tip.style.top=((pt+ih-ih*(x.u||0)/top-6)*k)+"px"; tip.classList.add("on"); };
+    rc.addEventListener("mouseenter",show); rc.addEventListener("touchstart",show,{passive:true}); rc.addEventListener("mouseleave",()=>tip.classList.remove("on")); });
+}
+function renderWxSettings(){
+  const isApp=!!(APP&&APP.requestLocation), w=state.settings.weather, h=H();
+  $("wxOn").checked=!!w.on && isApp; $("wxOn").disabled=!isApp;
+  $("wxWeb").classList.toggle("hidden",isApp);
+  $("wxIcon").classList.toggle("on",WX_ON());
+  $("wxSub").textContent= WX_ON()? t("wx.subOn") : t("wx.subOff");
+  $("pauseOpt").checked=!!state.settings.pauseFeature;
+  // Standort-Auswahl in der Heizungs-Karte
+  $("locWrap").classList.toggle("hidden",!WX_ON());
+  document.querySelectorAll("#locWrap .pill").forEach(b=>b.classList.toggle("on",b.dataset.lm===h.loc.mode));
+  $("locFixed").classList.toggle("hidden",h.loc.mode!=="fixed");
+  $("locInfo").textContent = h.loc.mode==="fixed" ? (isFinite(h.loc.lat)? t("loc.fixedIs",{name:h.loc.name||`${h.loc.lat}, ${h.loc.lon}`}) : t("loc.fixedNone")) : t("loc.phoneInfo");
+  // Berechtigung
+  let warn=null;
+  if(WX_ON() && wantPhoneLoc()){
+    const st=locStatus();
+    if(st==="denied") warn=["wx.permDenied","wx.openApp","app"];
+    else if(st==="off") warn=["wx.locOff","wx.openLoc","loc"];
+    else if(st==="default") warn=["wx.permAsk","wx.allow","ask"];
+  }
+  $("wxPerm").classList.toggle("hidden",!warn);
+  if(warn){ $("wxPermTxt").textContent=t(warn[0]); $("wxPermBtn").textContent=t(warn[1]); $("wxPermBtn").dataset.act=warn[2]; }
+  const m=WX_ON()? wxModel(h):null;
+  $("wxInfo").innerHTML = !WX_ON()? t("wx.explain") : m? (m.prior? t("wx.prior") : t("wx.learned",{b:n2.format(m.b), a:m.a>0.05? t("wx.base",{a:`${n2.format(m.a)} ${UL()}`}) : "", n:tn("fills",m.n,n_(m.n))})) + (m.n>=4? " "+t("wx.baseTemp",{t:m.base}) : "") : t("wx.learning");
 }
 
 /* ---------- Charts ---------- */
@@ -980,6 +1232,34 @@ $("hDel").onclick=async()=>{
   saveSettings(); toast(t("toast.heaterDeleted"));
 };
 
+/* Wetter, Standort, Pause */
+$("wxOn").addEventListener("change",()=>{
+  const on=$("wxOn").checked; state.settings.weather.on=on;
+  if(on){ const T=Calc.dayIdx(today()); state.heaters.forEach(h=>{ if(h.wxSince==null) h.wxSince=T; }); }
+  saveSettings();
+  if(on){ if(wantPhoneLoc() && locStatus()==="default"){ try{ APP.requestLocationPermission(); }catch(e){} } else updateLocation(); }
+});
+$("wxPermBtn").addEventListener("click",()=>{ const a=$("wxPermBtn").dataset.act; try{ if(a==="ask") APP.requestLocationPermission(); else if(a==="loc") APP.openLocationSettings(); else APP.openAppSettings(); }catch(e){} });
+$("pauseOpt").addEventListener("change",()=>{ state.settings.pauseFeature=$("pauseOpt").checked; saveSettings(); });
+document.querySelectorAll("#locWrap .pill").forEach(b=>b.addEventListener("click",()=>{
+  const h=H(); if(b.dataset.lm===h.loc.mode) return;
+  h.loc = b.dataset.lm==="fixed" ? {mode:"fixed"} : {mode:"phone"};
+  saveSettings();
+  if(h.loc.mode==="phone"){ if(locStatus()==="default"){ try{ APP.requestLocationPermission(); }catch(e){} } else updateLocation(); }
+  else setTimeout(()=>$("locQ").focus(),50);
+}));
+async function searchPlace(){
+  const q=$("locQ").value.trim(); if(q.length<2) return;
+  const box=$("locRes"); box.classList.remove("hidden"); box.innerHTML=`<button disabled>${t("wx.loading")}</button>`;
+  try{
+    const res=await Weather.geocode(q, I18N.getLang());
+    box.innerHTML = res.length? res.map((r,i)=>`<button data-i="${i}">${esc(r.name)}<small>${esc(r.region)}</small></button>`).join("") : `<button disabled>${t("loc.noResult")}</button>`;
+    box.querySelectorAll("button[data-i]").forEach(b=>b.onclick=()=>{ const r=res[+b.dataset.i]; H().loc={mode:"fixed",lat:r.lat,lon:r.lon,name:`${r.name}${r.region?", "+r.region.split(", ").pop():""}`}; box.classList.add("hidden"); $("locQ").value=""; saveSettings(); refreshWeather(true); toast(t("loc.set")); });
+  }catch(e){ box.innerHTML=`<button disabled>${t("wx.error")}</button>`; }
+}
+$("locGo").addEventListener("click",searchPlace);
+$("locQ").addEventListener("keydown",ev=>{ if(ev.key==="Enter"){ ev.preventDefault(); searchPlace(); } });
+
 /* Erinnerungen */
 function setNotifyOn(v){ state.settings.notify.on=v; saveSettings(); if(v) toast(t("toast.notifyOn")); }
 $("nOn").addEventListener("change",()=>{
@@ -996,7 +1276,7 @@ $("nHour").addEventListener("click",ev=>{ const b=ev.target.closest(".pill"); if
 $("nHeaters").addEventListener("change",ev=>{ const i=ev.target.closest("input[data-hn]"); if(!i) return; const h=state.heaters.find(x=>x.id===i.dataset.hn); if(h){ h.notify=i.checked; saveSettings(); } });
 $("nOpenSys").onclick=()=>{ try{ APP.openNotificationSettings(); }catch(e){} };
 $("nTest").onclick=()=>{ try{ const ti=tankInfo(H()); APP.testNotification(t("n.msgTitle",{name:ti.name}), t("n.testBody")); }catch(e){ toast(t("toast.appOnly")); } };
-window.__onResume=()=>{ lastNative=""; render(); maybeCheckUpdate(false); };
+window.__onResume=()=>{ lastNative=""; render(); maybeCheckUpdate(false); updateLocation(); };
 
 /* ---------- App-Updates (nur Android-App) ---------- */
 const UPD_KEY="standheizung-upd";
@@ -1091,13 +1371,13 @@ $("form").addEventListener("submit",async ev=>{
   f.heaterId = editing ? hid(editing) : state.active;
   if(editing) f.id=editing.id;
   closeForm();
-  try{ await saveFill(f); toast(t("toast.saved")); }catch(e){}
+  try{ await saveFill(f); toast(t("toast.saved")); updateLocation(); }catch(e){}
 });
 
 applyLang();
 go(location.hash.slice(1)||"home");
 init();
-renderUpdate(); setTimeout(()=>maybeCheckUpdate(false),800);
+renderUpdate(); setTimeout(()=>maybeCheckUpdate(false),800); setTimeout(updateLocation,1200);
 })();
 </script>
 </body>

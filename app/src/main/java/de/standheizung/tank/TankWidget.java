@@ -87,10 +87,25 @@ public class TankWidget extends AppWidgetProvider {
         boolean lastFull = w.optBoolean("lastFull", false);
         long now = System.currentTimeMillis();
 
-        if (cap > 0 && lastFull && rate > 0) {
+        org.json.JSONObject curve = w.optJSONObject("curve");
+        if (cap > 0 && lastFull && (rate > 0 || curve != null)) {
             double daysSince = Math.max(0, (now - fillTime) / (double) DAY);
             double left = Math.max(0, cap - rate * daysSince);
-            double daysLeft = left / rate;
+            double daysLeft = rate > 0 ? left / rate : 0;
+            if (curve != null) {
+                // Wetterbasierte Kurve aus der App: Tankinhalt zu Beginn jedes Tages ab t0
+                org.json.JSONArray arr = curve.optJSONArray("left");
+                long t0 = curve.optLong("t0", fillTime);
+                if (arr != null && arr.length() > 0) {
+                    double pos = Math.max(0, (now - t0) / (double) DAY);
+                    int i = (int) Math.floor(pos);
+                    if (i >= arr.length() - 1) left = arr.optDouble(arr.length() - 1, 0);
+                    else left = arr.optDouble(i) + (arr.optDouble(i + 1) - arr.optDouble(i)) * (pos - i);
+                    left = Math.max(0, left);
+                }
+                long emptyAt = curve.optLong("emptyAt", 0);
+                if (emptyAt > 0) daysLeft = Math.max(0, (emptyAt - now) / (double) DAY);
+            }
             int pct = (int) Math.round(Math.max(0, Math.min(100, left / cap * 100)));
             boolean low = daysLeft <= Math.max(warnDays, 2) || pct < 20;
             String until = Texts.shortDate(c).format(new Date(now + (long) (daysLeft * DAY)));

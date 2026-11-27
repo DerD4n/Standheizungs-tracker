@@ -175,19 +175,22 @@
         estL: 0, estC: 0, estPastL: 0, own: false });
     }
 
-    let gapL = 0, restL = 0, uC = 0, ownDays = 0, preDays = 0;
+    let gapL = 0, restL = 0, uC = 0, ownDays = 0, preDays = 0, wxDays = 0;
     for (let d = A; d < B; d++) {
       const known = d >= firstFrom && d < lastTo && rateAt(ivs, d);
       if (known) continue;
       const m = monthOf(d);
-      const useOwn = own[m] != null;
-      const r = useOwn ? own[m] : k * weight(d);
+      // Wetterbasierter Tageswert (gelerntes Modell × Heizgrade), falls vorhanden
+      const wx = opts.dayRate ? opts.dayRate(d) : null;
+      const useOwn = !wx && own[m] != null;
+      const r = wx ? wx.rate : useOwn ? own[m] : k * weight(d);
       if (useOwn) ownDays++;
+      if (wx) wxDays++;
       if (d < firstFrom) preDays++;
       const mo = months[Math.min(11, months.findIndex((x) => d >= x.startD && d < x.endD))];
       mo.estL += r; mo.estC += r * price; if (useOwn) mo.own = true;
       if (d < T) { gapL += r; mo.estPastL += r; } else restL += r;
-      uC += r * price * (useOwn ? uOwn : uProfile);
+      uC += r * price * (wx ? wx.u : useOwn ? uOwn : uProfile);
     }
 
     const known = share(ivs, A, B);
@@ -200,7 +203,7 @@
       spent, rest, total,
       low: Math.max(known.cost, total - uC), high: total + uC,
       liters: known.liters + gapL + restL,
-      months, usedOwn: ownDays > 0, preTracking: preDays > 0, coverage,
+      months, usedOwn: ownDays > 0, usedWeather: wxDays > 0, preTracking: preDays > 0, coverage,
       lastKnown: dateOf(lastTo),
     };
   }
@@ -213,7 +216,143 @@
     return { left, pct: (left / cap) * 100, daysLeft: left / rate, emptyD: dayIdx(fillDate) + cap / rate };
   }
 
+  /* ---------- Wetter: Heizgrade, Lernmodell, Pausen, Tank-Simulation ----------
+     Heizgrade (Gradtage) eines Tages = Σ über die Stunden max(0, Basis − Temperatur) / Stunden.
+     Weil die passende Basistemperatur je Fahrzeug/Isolierung verschieden ist, werden sie für
+     mehrere Basen gespeichert; das Modell sucht sich die beste aus. */
+  const BASES = [12, 14, 16, 18, 20];
+  const DEFAULT_BASE = 16;
+
+  /** Stundenwerte (ISO-Zeit lokal, °C) → { Tagesindex: { h:[Gradtage je Basis], tmin, tmax } } (nur Tage mit ≥ 20 Stunden). */
+  function dailyFromHourly(times, temps) {
+    const acc = {};
+    for (let i = 0; i < times.length; i++) {
+      const v = temps[i];
+      if (v == null || !isFinite(v)) continue;
+      const d = dayIdx(parseD(times[i]));
+      const o = acc[d] || (acc[d] = { s: BASES.map(() => 0), n: 0, tmin: Infinity, tmax: -Infinity });
+      BASES.forEach((b, k) => { o.s[k] += Math.max(0, b - v); });
+      o.n++; o.tmin = Math.min(o.tmin, v); o.tmax = Math.max(o.tmax, v);
+    }
+    const out = {};
+    for (const [d, o] of Object.entries(acc)) {
+      if (o.n >= 20) out[d] = { h: o.s.map((x) => x / o.n), tmin: o.tmin, tmax: o.tmax };
+    }
+    return out;
+  }
+
+  /** Gradtage eines Tagesdatensatzes zur Basis (zwischen den gespeicherten Basen linear). */
+  function hddAt(rec, base) {
+    if (!rec) return null;
+    const x = (Math.min(BASES[BASES.length - 1], Math.max(BASES[0], base)) - BASES[0]) / 2;
+    const i = Math.floor(x), f = x - i;
+    return i >= BASES.length - 1 ? rec.h[BASES.length - 1] : rec.h[i] * (1 - f) + rec.h[i + 1] * f;
+  }
+
+  /** Klima je Kalendertag: Mittel aus mehreren Jahren (±3 Tage geglättet). Liefert d → Datensatz. */
+  function climateFrom(records) {
+    const byKey = new Map();
+    const key = (d) => { const u = new Date(d * DAY); return u.getUTCMonth() * 31 + u.getUTCDate(); };
+    for (const [d, r] of Object.entries(records)) {
+      const k = key(+d), o = byKey.get(k) || { s: BASES.map(() => 0), n: 0 };
+      r.h.forEach((x, j) => { o.s[j] += x; }); o.n++; byKey.set(k, o);
+    }
+    if (!byKey.size) return () => null;
+    return (d) => {
+      const s = BASES.map(() => 0); let n = 0;
+      for (let off = -3; off <= 3; off++) {
+        const o = byKey.get(key(d + off));
+        if (o) { o.s.forEach((x, j) => { s[j] += x; }); n += o.n; }
+      }
+      return n ? { h: s.map((x) => x / n), climate: true } : null;
+    };
+  }
+
+  /** Pausen: [{from: Tagesindex, to: Tagesindex|null}] – Ende exklusiv, null = läuft noch. */
+  function isPaused(pauses, d) {
+    return !!(pauses && pauses.some((p) => d >= p.from && (p.to == null || d < p.to)));
+  }
+
+  /** Lern-Stichproben: je Abschnitt (ab `since`) verbrauchte Liter, aktive Tage und deren Wetter.
+      Abschnitte, in denen Wetter fehlt, werden übersprungen. */
+  function weatherSamples(ivs, { dayRec, pauses, since }) {
+    const out = [];
+    for (const iv of ivs) {
+      if (since != null && iv.fromD < since) continue;
+      const recs = []; let ok = true;
+      for (let d = iv.fromD; d < iv.toD; d++) {
+        if (isPaused(pauses, d)) continue;
+        const r = dayRec(d);
+        if (!r) { ok = false; break; }
+        recs.push(r);
+      }
+      if (ok && recs.length) out.push({ liters: iv.liters, days: recs.length, recs });
+    }
+    return out;
+  }
+
+  /** Liter = a·Tage + b·Gradtage (a, b ≥ 0) per kleinster Quadrate; bei wenig Daten nur b. */
+  function fitAB(S) {
+    let DD = 0, DH = 0, HH = 0, DL = 0, HL = 0, L = 0, D = 0, H = 0;
+    for (const s of S) { DD += s.D * s.D; DH += s.D * s.H; HH += s.H * s.H; DL += s.D * s.L; HL += s.H * s.L; L += s.L; D += s.D; H += s.H; }
+    const only = () => (H > 0.5 ? { a: 0, b: L / H } : { a: D ? L / D : 0, b: 0 });
+    if (S.length < 3) return only();
+    const det = DD * HH - DH * DH;
+    if (Math.abs(det) < 1e-9 * DD * HH) return only();
+    let a = (DL * HH - HL * DH) / det, b = (DD * HL - DH * DL) / det;
+    if (a < 0) { a = 0; b = HH ? HL / HH : 0; }
+    if (b < 0) { b = 0; a = DD ? DL / DD : 0; }
+    return { a, b };
+  }
+
+  function fitWeather(samples) {
+    if (!samples.length) return null;
+    const tryBase = (base) => {
+      const S = samples.map((s) => ({ L: s.liters, D: s.days, H: s.recs.reduce((x, r) => x + hddAt(r, base), 0) }));
+      const m = fitAB(S);
+      const sse = S.reduce((x, s) => x + (s.L - m.a * s.D - m.b * s.H) ** 2, 0);
+      return { ...m, base, sse };
+    };
+    // Basistemperatur erst ab 4 Abschnitten aus den Daten wählen, sonst Standard (16 °C).
+    // Nur wechseln, wenn eine andere Basis deutlich (≥ 10 %) besser passt: War es z. B. immer kälter
+    // als 12 °C, sind "Basis 12 + Grundlast" und "Basis 16" nicht unterscheidbar – dann bleibt 16,
+    // sonst würde im Sommer fälschlich eine Grundlast weiterlaufen.
+    const std = tryBase(DEFAULT_BASE);
+    const n = samples.length, meanL = samples.reduce((x, s) => x + s.liters, 0) / n;
+    const rmse = (m) => Math.sqrt(m.sse / n);
+    let best = std;
+    if (n >= 4) for (const b of BASES) {
+      const m = tryBase(b);
+      // deutlich besser = mittlerer Fehler mindestens 3 % des typischen Abschnittsverbrauchs kleiner
+      if (rmse(m) < rmse(best) - 1e-9 && rmse(std) - rmse(m) > 0.03 * meanL) best = m;
+    }
+    const days = samples.reduce((x, s) => x + s.days, 0);
+    return { a: best.a, b: best.b, base: best.base, n: samples.length, days };
+  }
+
+  /** Verbrauch eines Tages laut Modell (0 bei Pause, null ohne Wetter). */
+  function usageOf(model, rec, paused) {
+    if (paused) return 0;
+    if (!model || !rec) return null;
+    return model.a + model.b * hddAt(rec, model.base);
+  }
+
+  /** Tank ab der letzten Vollbetankung (Tag fillD, voll = cap) Tag für Tag leerrechnen.
+      useOf(d) → Liter oder null (keine Daten). Ergebnis: Inhalt zu Beginn jedes Tages, Leer-Tag (Bruchteil). */
+  function simulateTank(cap, fillD, useOf, maxDays = 400) {
+    let left = cap; const left0 = [];
+    for (let d = fillD; d < fillD + maxDays; d++) {
+      left0.push(left);
+      const u = useOf(d);
+      if (u == null) return { left: left0, emptyD: null, until: d };
+      if (u > 0 && left - u <= 0) return { left: left0, emptyD: d + left / u, until: d + 1 };
+      left -= u;
+    }
+    return { left: left0, emptyD: null, until: fillD + maxDays };
+  }
+
   const Calc = { DAY, GTZ, parseD, dayIdx, dateOf, weight, daysInMonth, hjOf, hjRange,
+    BASES, DEFAULT_BASE, dailyFromHourly, hddAt, climateFrom, isPaused, weatherSamples, fitWeather, usageOf, simulateTank,
     sortFills, intervals, share, forecast, tankLeft };
   if (typeof module !== "undefined" && module.exports) module.exports = Calc;
   else root.Calc = Calc;
